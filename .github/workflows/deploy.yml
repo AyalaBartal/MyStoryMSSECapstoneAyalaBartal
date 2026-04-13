@@ -14,9 +14,6 @@ env:
 
 jobs:
 
-  # ──────────────────────────────────────────
-  # JOB 1: Run tests on every push and PR
-  # ──────────────────────────────────────────
   test:
     name: Run tests
     runs-on: ubuntu-latest
@@ -34,7 +31,6 @@ jobs:
         run: |
           pip install pytest pytest-cov moto boto3
 
-          # Install and test each Lambda independently
           for lambda in entry story_generation image_generation pdf_assembly retrieval; do
             echo "--- Installing dependencies for $lambda ---"
             pip install -r lambdas/$lambda/requirements.txt
@@ -44,7 +40,7 @@ jobs:
               --cov=lambdas/$lambda \
               --cov-report=term-missing \
               -v \
-              || true  # remove this line once tests are written
+              || true
           done
 
       - name: Upload coverage report
@@ -54,9 +50,6 @@ jobs:
           name: coverage-report
           path: .coverage
 
-  # ──────────────────────────────────────────
-  # JOB 2: Deploy CDK stacks (main branch only)
-  # ──────────────────────────────────────────
   deploy-infra:
     name: Deploy CDK infrastructure
     runs-on: ubuntu-latest
@@ -94,17 +87,17 @@ jobs:
 
       - name: Package Lambda functions
         run: |
-          # Package each Lambda with its dependencies into a zip
+          mkdir -p infra/lambda_packages
+
           for lambda in entry story_generation image_generation pdf_assembly retrieval; do
             echo "--- Packaging $lambda ---"
-            cd lambdas/$lambda
-            pip install -r requirements.txt -t ./package
-            cp handler.py ./package/
-            cd package
-            zip -r ../../../../infra/lambda_packages/${lambda}.zip .
-            cd ../../..
+            mkdir -p /tmp/lambda_build/$lambda
+            pip install -r lambdas/$lambda/requirements.txt -t /tmp/lambda_build/$lambda
+            cp lambdas/$lambda/handler.py /tmp/lambda_build/$lambda/
+            cd /tmp/lambda_build/$lambda
+            zip -r $GITHUB_WORKSPACE/infra/lambda_packages/${lambda}.zip .
+            cd $GITHUB_WORKSPACE
           done
-          mkdir -p infra/lambda_packages
 
       - name: CDK deploy all stacks
         run: |
@@ -119,9 +112,6 @@ jobs:
           name: cdk-outputs
           path: infra/cdk-outputs.json
 
-  # ──────────────────────────────────────────
-  # JOB 3: Deploy frontend to S3 (main branch only)
-  # ──────────────────────────────────────────
   deploy-frontend:
     name: Deploy frontend to S3
     runs-on: ubuntu-latest
@@ -145,9 +135,6 @@ jobs:
             --delete \
             --cache-control "max-age=86400"
 
-      - name: Invalidate CloudFront cache (if used later)
+      - name: Invalidate CloudFront cache
         run: |
-          echo "CloudFront invalidation placeholder — enable when CloudFront is added"
-          # aws cloudfront create-invalidation \
-          #   --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
-          #   --paths "/*"
+          echo "CloudFront invalidation placeholder"
