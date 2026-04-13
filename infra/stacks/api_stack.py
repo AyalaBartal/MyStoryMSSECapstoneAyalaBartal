@@ -10,7 +10,7 @@ from constructs import Construct
 
 class ApiStack(cdk.Stack):
 
-    def __init__(self, scope: Construct, construct_id: str, storage, **kwargs) -> None:
+    def __init__(self, scope: Construct, construct_id: str, storage, pipeline, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         # ── Entry Lambda ─────────────────────────────────────────
@@ -25,6 +25,7 @@ class ApiStack(cdk.Stack):
             environment={
                 "STORIES_TABLE": storage.stories_table.table_name,
                 "PDFS_BUCKET": storage.pdfs_bucket.bucket_name,
+                "STATE_MACHINE_ARN": pipeline.state_machine.state_machine_arn,
             },
         )
 
@@ -47,6 +48,9 @@ class ApiStack(cdk.Stack):
 
         # Entry Lambda can read/write DynamoDB
         storage.stories_table.grant_read_write_data(self.entry_lambda)
+
+        # Entry Lambda can start Step Functions
+        pipeline.state_machine.grant_start_execution(self.entry_lambda)
 
         # Retrieval Lambda can read DynamoDB and S3
         storage.stories_table.grant_read_data(self.retrieval_lambda)

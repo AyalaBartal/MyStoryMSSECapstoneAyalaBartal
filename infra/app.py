@@ -12,8 +12,8 @@ env = cdk.Environment(
 )
 
 storage = StorageStack(app, "MyStoryStorage", env=env)
-api = ApiStack(app, "MyStoryApi", storage=storage, env=env)
 pipeline = PipelineStack(app, "MyStoryPipeline", storage=storage, env=env)
+api = ApiStack(app, "MyStoryApi", storage=storage, pipeline=pipeline, env=env)
 cicd = CicdStack(app, "MyStoryCicd", env=env)
 
 app.synth()
