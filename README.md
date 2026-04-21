@@ -161,39 +161,92 @@ my-story/
 ## 🛠️ Local Development Setup
 
 ### Prerequisites
-- Python 3.11+
-- Node.js 18+ (for CDK)
-- AWS CLI configured
-- AWS CDK: `npm install -g aws-cdk`
+- Python 3.11+ (Lambdas run on Python 3.11 in AWS — match the runtime locally)
+- Node.js 18+ (only needed if you want to run `cdk deploy` from your laptop)
+- AWS CLI configured (only needed for deploying from your laptop)
+- Homebrew (macOS): `brew install python@3.11 node` gets you the first two
 
-### Install CDK dependencies
+### 1. Clone and create a virtualenv
+
+All local work happens inside a project-local virtualenv. Do **not** install project dependencies into your global/system Python — that causes version conflicts across projects.
+
 ```bash
-cd infra
-pip install -r requirements.txt
+git clone https://github.com/AyalaBartal/MyStoryMSSECapstoneAyalaBartal.git
+cd MyStoryMSSECapstoneAyalaBartal
+
+# Create the virtualenv (one-time)
+python3.11 -m venv .venv
+
+# Activate it (every new terminal session)
+source .venv/bin/activate
+
+# Verify — prompt should now show (.venv)
+python --version        # -> 3.11.x
+which pip               # -> .../.venv/bin/pip
 ```
 
-### Install Lambda dependencies
+The `.venv/` directory is gitignored and will not be committed.
+
+### 2. Install dev dependencies
+
+`requirements-dev.txt` contains only what you need to write and test code locally (pytest, moto, boto3, responses). It does **not** install the Lambda deployment dependencies — those get bundled into each Lambda zip at deploy time by GitHub Actions, not installed on your laptop.
+
 ```bash
-# Each Lambda has its own dependencies
-cd lambdas/entry && pip install -r requirements.txt
-cd lambdas/story_generation && pip install -r requirements.txt
-cd lambdas/image_generation && pip install -r requirements.txt
-cd lambdas/pdf_assembly && pip install -r requirements.txt
-cd lambdas/retrieval && pip install -r requirements.txt
+pip install --upgrade pip
+pip install -r requirements-dev.txt
 ```
 
-### Deploy to AWS
+Sanity check:
 ```bash
+python -c "import pytest, moto, boto3; print('OK')"
+```
+
+### 3. Run tests
+
+```bash
+# From the repo root, with .venv active
+pytest lambdas/ -v
+```
+
+### 4. (Optional) Install CDK tooling for deployment from your laptop
+
+The GitHub Actions workflow deploys automatically on push to `main`, so this is only needed if you want to deploy manually.
+
+```bash
+npm install -g aws-cdk                   # CDK CLI (one-time, global)
+pip install -r infra/requirements.txt    # CDK Python libraries (into .venv)
 cd infra
-cdk bootstrap   # first time only
+cdk bootstrap                            # one-time per AWS account + region
 cdk deploy --all
 ```
 
-### Run tests
-```bash
-# From repo root
-pytest lambdas/
+### 5. About the per-Lambda `requirements.txt` files
+
+Each Lambda keeps its **own** `requirements.txt` on purpose. This is a deliberate architectural choice that preserves the ability to split any Lambda into its own standalone service (own repo, own deploy pipeline, own runtime) in the future without rewriting dependency management.
+
 ```
+lambdas/entry/requirements.txt            → only what entry/handler.py imports
+lambdas/story_generation/requirements.txt → only what story_generation imports
+lambdas/image_generation/requirements.txt → only what image_generation imports
+lambdas/pdf_assembly/requirements.txt     → only what pdf_assembly imports (reportlab, pillow)
+lambdas/retrieval/requirements.txt        → only what retrieval/handler.py imports
+```
+
+The GitHub Actions workflow (`.github/workflows/deploy.yml`) reads each file independently and bundles *only* that Lambda's declared dependencies into its zip. This keeps each Lambda's deployment artifact small and its dependency surface narrow.
+
+**When to touch these files:**
+- Add a package only to the specific Lambda that imports it
+- Never put dev/test tooling (pytest, moto) in a Lambda's requirements — those live in `requirements-dev.txt`
+
+**Running tests that exercise a specific Lambda's runtime deps:**
+Our unit tests mock external I/O (HTTP, AWS) via `moto` and `responses`, so you generally don't need to install a Lambda's own `requirements.txt` on your laptop. If you ever do need to (e.g. running a Lambda handler interactively with `reportlab`), install it *ad hoc* inside your `.venv`:
+
+```bash
+# Example — temporary, for interactive debugging of pdf_assembly
+pip install -r lambdas/pdf_assembly/requirements.txt
+```
+
+That's fine inside the venv, because the venv is isolated from your system Python.
 
 ---
 
