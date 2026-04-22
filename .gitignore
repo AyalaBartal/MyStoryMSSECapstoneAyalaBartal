@@ -31,3 +31,8 @@ infra/lambda_packages/
 # IDE
 .vscode/
 .idea/
+
+# Test artifacts
+.coverage
+.pytest_cache/
+htmlcov/

@@ -35,8 +35,9 @@ When you come back to this project (new session, new day, new Claude conversatio
 ### Key decisions
 
 - **Implementation strategy:** Finish the backend with **mock ML responses first**, prove the full pipeline end-to-end, then swap real fine-tuned models in last. Reduces Capstone-deadline risk; debugging is easier with a known-good baseline.
-- **Architecture pattern for Lambdas:** **Hexagonal / ports-and-adapters.** Thin `handler.py` (AWS entry point) → pure `service.py` (business logic, unit-testable without mocks) → shared `lambdas/_shared/` module for CORS helpers / error types / structured logging. Applies to every Lambda.
-- **Per-Lambda `requirements.txt` stays separate on purpose** — preserves the future option to split any Lambda into its own standalone service/repo without reworking dependency management.
+- **Architecture pattern for Lambdas:** **Hexagonal / ports-and-adapters.** Thin `handler.py` (AWS entry point) → pure `service.py` (business logic, unit-testable without mocks) → a small `utils.py` (or inlined helpers) inside each Lambda for CORS / errors / logging. Applies to every Lambda.
+- **Each Lambda is a fully self-contained unit. NO shared-code module between Lambdas.** ⚠️ This is non-negotiable — the whole point is that any Lambda can be extracted into its own repo/service later without unwinding an import graph. The boilerplate (~35 lines per Lambda for responses/errors/logger) is duplicated on purpose. Documented as a pattern in `lambdas/README.md`; if duplication grows past ~200 lines we'd reconsider via a proper versioned internal package (not a folder import).
+- **Per-Lambda `requirements.txt` stays separate on purpose** — same rationale: preserves the future option to split any Lambda into its own standalone service/repo without reworking dependency management.
 - **Three levels of Python dependencies:**
   - `lambdas/<name>/requirements.txt` → deployment contract for that Lambda only (bundled into zip)
   - `requirements-dev.txt` (root) → local test tooling (pytest, pytest-cov, moto, boto3, responses)
@@ -84,12 +85,12 @@ When you come back to this project (new session, new day, new Claude conversatio
 
 ### Full implementation plan (the recovered roadmap)
 
-**Phase 1 — establish clean foundation**
-1. Create `lambdas/_shared/` module (`responses.py`, `errors.py`, `logging.py`)
-2. Refactor Entry Lambda to use the pattern (split handler.py into handler + service)
-3. Write tests for Entry Lambda (validates the pattern + greens up CI)
-4. Build Retrieval Lambda using the pattern + tests
-5. Add `lambdas/README.md` documenting the pattern
+**Phase 1 — establish clean foundation (NO shared-code module)**
+1. Build Retrieval Lambda as the first-of-kind: `handler.py` (thin) + `service.py` (pure logic) + `utils.py` (inline helpers, per-Lambda) + `tests/`
+2. Document the pattern in `lambdas/README.md` using retrieval as the canonical example
+3. Refactor Entry Lambda to match the pattern (split handler.py → handler + service + utils)
+4. Write tests for Entry Lambda (validates the pattern + greens up CI)
+5. Every future Lambda copies this self-contained structure — no shared imports
 
 **Phase 2 — end-to-end pipeline with mocks**
 6. Build frontend skeleton (HTML + card selection + POST /generate + poll GET /story/{id})
@@ -118,18 +119,22 @@ When you come back to this project (new session, new day, new Claude conversatio
 
 ### Immediate next step (Step 1)
 
-Create the shared module:
+Build the Retrieval Lambda as a fully self-contained unit:
 
 ```
-lambdas/
-└── _shared/
+lambdas/retrieval/
+├── __init__.py
+├── handler.py         # thin AWS entry point
+├── service.py         # pure Python — read DynamoDB, generate pre-signed URL
+├── utils.py           # make_response(), error_response(), get_logger() — INLINE, not shared
+├── requirements.txt   # already exists
+└── tests/
     ├── __init__.py
-    ├── responses.py   # make_response(), cors_headers()
-    ├── errors.py      # ValidationError, NotFoundError, StoryProcessingError
-    └── logging.py     # get_logger() — structured JSON logger
+    ├── test_handler.py
+    └── test_service.py
 ```
 
-Then refactor `lambdas/entry/handler.py` to use them and write the first real test suite.
+Then document the pattern in `lambdas/README.md` and refactor Entry Lambda to match.
 
 ### Commit command when ready
 
