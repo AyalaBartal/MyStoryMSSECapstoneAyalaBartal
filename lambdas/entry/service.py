@@ -7,25 +7,35 @@ event shapes here — that's handler.py's job.
 import json
 import uuid
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Callable
-
 
 # Story records expire after 30 days via DynamoDB TTL. The frontend
 # shows finished PDFs to users; after a month, the record (and the
 # pre-signed URL contract) can be safely forgotten.
 STORY_TTL_SECONDS = 30 * 24 * 60 * 60
 
+# Schema-driven validation: the list of valid card selections lives in
+# cards_schema.json, not in code. Product/content changes (e.g., adding
+# a 5th theme, renaming a hero) require editing JSON and redeploying —
+# no Python edit needed. Read once at cold start; the Lambda container
+# is reused across invocations so we don't pay the disk cost per request.
+_SCHEMA_PATH = Path(__file__).parent / "cards_schema.json"
+
+def _load_schema(path: Path) -> dict:
+    """Load and return the card schema dict from disk.
+
+    Exists as a named function so tests can point at a tmp_path JSON
+    to verify the validation logic is genuinely schema-agnostic —
+    see test_schema_*_works_without_code_change.
+    """
+    with open(path) as f:
+        return json.load(f)
 
 # Valid card selections. Deliberately a whitelist — anything not in
-# here is rejected, so a typo or rogue client can never reach the ML
-# pipeline with malformed input.
-VALID_SELECTIONS = {
-    "hero":      ["boy", "girl"],
-    "theme":     ["space", "under_the_sea", "medieval_fantasy", "dinosaurs"],
-    "challenge": ["asteroid", "wizard_witch", "dragon", "volcano"],
-    "strength":  ["super_strong", "friendship", "super_smart", "super_speed"],
-}
-
+# the schema is rejected, so a typo or rogue client can never reach
+# the ML pipeline with malformed input.
+VALID_SELECTIONS = _load_schema(_SCHEMA_PATH)
 
 def validate_card_selections(body: dict) -> dict:
     """Validate the four card selections against the whitelist.

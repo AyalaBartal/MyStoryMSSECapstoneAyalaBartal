@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 
 import pytest
 
+import service
 from service import (
     STORY_TTL_SECONDS,
     VALID_SELECTIONS,
@@ -62,6 +63,50 @@ class TestValidateCardSelections:
     def test_non_dict_body_raises(self, bad_body):
         with pytest.raises(ValueError, match="must be a JSON object"):
             validate_card_selections(bad_body)
+
+class TestSchemaDriven:
+    """Prove the validator is schema-agnostic — adding or removing a
+    card family should work by editing cards_schema.json alone, with
+    no code change. Both tests monkeypatch the module-level
+    VALID_SELECTIONS to simulate a schema edit.
+    """
+
+    def test_schema_addition_works_without_code_change(self, monkeypatch):
+        """A new card family (e.g., 'mood') added to the schema must be
+        validated just like the existing ones, with no code change."""
+        custom_schema = {
+            **service.VALID_SELECTIONS,
+            "mood": ["happy", "curious", "brave"],
+        }
+        monkeypatch.setattr(service, "VALID_SELECTIONS", custom_schema)
+
+        # Valid: all fields present including the new one.
+        body = {**VALID_BODY, "mood": "happy"}
+        result = service.validate_card_selections(body)
+        assert result == body
+
+        # Missing the new field should now fail.
+        with pytest.raises(ValueError, match="Missing required field: mood"):
+            service.validate_card_selections(VALID_BODY)
+
+        # Invalid value in the new field should fail.
+        with pytest.raises(ValueError, match="Invalid value for mood"):
+            service.validate_card_selections({**VALID_BODY, "mood": "angry"})
+
+    def test_schema_removal_works_without_code_change(self, monkeypatch):
+        """Removing a card family from the schema (e.g., dropping
+        'strength') must make that field no longer required — again
+        with no code change."""
+        custom_schema = {
+            k: v for k, v in service.VALID_SELECTIONS.items() if k != "strength"
+        }
+        monkeypatch.setattr(service, "VALID_SELECTIONS", custom_schema)
+
+        # Body without 'strength' is now fully valid.
+        body = {k: v for k, v in VALID_BODY.items() if k != "strength"}
+        result = service.validate_card_selections(body)
+        assert result == body
+        assert "strength" not in result
 
 
 class TestCreateStory:
