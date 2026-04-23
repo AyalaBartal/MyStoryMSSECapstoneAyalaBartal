@@ -36,3 +36,4 @@ infra/lambda_packages/
 .coverage
 .pytest_cache/
 htmlcov/
+scripts/smoke_output/
