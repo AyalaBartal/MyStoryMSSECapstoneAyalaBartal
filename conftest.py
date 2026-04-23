@@ -33,7 +33,7 @@ os.environ.setdefault("AWS_SECRET_ACCESS_KEY", "testing")
 # ── Per-Lambda import isolation ──────────────────────────────────────
 
 _LAMBDAS_ROOT = (Path(__file__).resolve().parent / "lambdas").resolve()
-_MODULES_TO_RESET = ("handler", "service", "utils")
+_MODULES_TO_RESET = ("handler", "service", "utils", "adapters")
 _current_lambda = None
 
 

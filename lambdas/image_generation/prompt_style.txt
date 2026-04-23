@@ -1,0 +1,12 @@
+Illustration style guide applied to every image in this story.
+
+Visual style: soft watercolor with gentle digital gouache shading. Warm natural lighting, warm earthy color palette with one theme-appropriate accent color. Storybook illustration aesthetic — classic picture-book charm rather than photorealism. 1:1 square composition.
+
+Rules:
+- NO text, captions, watermarks, logos, or speech bubbles anywhere in the image.
+- The hero ({hero}) must be the clear focal character, visible and emotionally expressive.
+- Setting details appropriate to "{theme}" but never cluttered.
+- Age-appropriate for readers 8-12.
+- Consistent mood and color temperature across all pages in this story.
+
+Scene to illustrate: {page_text}
