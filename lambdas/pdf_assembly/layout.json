@@ -1,0 +1,15 @@
+{
+  "page_size": "letter",
+  "margin_pt": 54,
+  "image": {
+    "width_pt": 450,
+    "height_pt": 450,
+    "top_padding_pt": 50
+  },
+  "text": {
+    "font_name": "Helvetica",
+    "font_size_pt": 14,
+    "leading_pt": 20,
+    "top_padding_pt": 30
+  }
+}

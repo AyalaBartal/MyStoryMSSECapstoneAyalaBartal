@@ -1,2 +1,1 @@
-boto3
-reportlab
+reportlab>=4.0
