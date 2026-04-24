@@ -57,7 +57,7 @@ class AnthropicLLMAdapter(LLMAdapter):
     """
 
     DEFAULT_MODEL = "claude-haiku-4-5-20251001"
-    DEFAULT_MAX_TOKENS = 1024
+    DEFAULT_MAX_TOKENS = 3000
 
     def __init__(
         self,

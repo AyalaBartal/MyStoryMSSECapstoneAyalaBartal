@@ -21,6 +21,7 @@ from pathlib import Path
 # means any Lambda's handler imports cleanly.
 os.environ.setdefault("STORIES_TABLE", "test-stories")
 os.environ.setdefault("PDFS_BUCKET", "test-pdfs")
+os.environ.setdefault("IMAGES_BUCKET", "test-images")
 os.environ.setdefault(
     "STATE_MACHINE_ARN",
     "arn:aws:states:us-east-1:123456789012:stateMachine:test-pipeline",

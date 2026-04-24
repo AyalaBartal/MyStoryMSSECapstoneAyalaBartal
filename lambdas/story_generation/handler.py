@@ -4,53 +4,63 @@ Invoked by Step Functions with the input:
     {"story_id": "...", "hero": "...", "theme": "...",
      "challenge": "...", "strength": "..."}
 
-Returns the input dict plus a "pages" array — preserving all input
-keys so the next step (image_generation) has what it needs.
+Returns the input dict plus a "pages" array.
 
-Error handling:
-    Any exception bubbles up. Step Functions catches it, transitions
-    the execution to FAILED, and a Fail state / pdf_assembly updates
-    DDB. We don't try/except here — the state machine is the right
-    place for that policy, and swallowing errors would hide real
-    problems from CloudWatch alarms.
+Secrets:
+    ANTHROPIC_API_KEY is loaded from AWS Secrets Manager at cold start
+    if not already in the env. Local dev sets it via .env so the
+    Secrets Manager fetch is skipped. Production gets ANTHROPIC_SECRET_ARN
+    from CDK and fetches the actual key at first invocation.
 """
+
+import os
 
 from adapters import AnthropicLLMAdapter
 from service import generate_story
 
 
-# Module-level cache — Lambda containers are reused across invocations.
-# Building the Anthropic client once per cold start (not per event)
-# saves ~50-100ms of connection setup per warm invocation.
 _ADAPTER = None
 
 
-def _get_adapter():
-    """Lazily build the LLM adapter on first call, cache for reuse.
+def _ensure_api_key_loaded():
+    """Fetch ANTHROPIC_API_KEY from Secrets Manager if not already in env.
 
-    Deferred import of `anthropic` so the module loads fast at cold
-    start — the SDK is only pulled in when we actually need to call it.
-    Tests monkeypatch this function (or `_ADAPTER`) to inject a
-    MockLLMAdapter and keep handler tests offline.
+    Local dev: .env already provides ANTHROPIC_API_KEY — no-op.
+    Lambda:    CDK sets ANTHROPIC_SECRET_ARN. First call fetches the
+               value and stashes it in os.environ so anthropic.Anthropic()
+               can read it the standard way.
+
+    Deferred import of boto3 so local tests that never call this function
+    don't pay the import cost.
     """
+    if "ANTHROPIC_API_KEY" in os.environ:
+        return
+    secret_arn = os.environ.get("ANTHROPIC_SECRET_ARN")
+    if not secret_arn:
+        raise RuntimeError(
+            "Neither ANTHROPIC_API_KEY nor ANTHROPIC_SECRET_ARN is set. "
+            "Local dev should have ANTHROPIC_API_KEY in .env; "
+            "production Lambda should have ANTHROPIC_SECRET_ARN from CDK."
+        )
+    import boto3
+    sm = boto3.client("secretsmanager")
+    response = sm.get_secret_value(SecretId=secret_arn)
+    os.environ["ANTHROPIC_API_KEY"] = response["SecretString"]
+
+
+def _get_adapter():
+    """Lazily build the LLM adapter on first call, cache for reuse."""
     global _ADAPTER
     if _ADAPTER is None:
+        _ensure_api_key_loaded()
         import anthropic
-        client = anthropic.Anthropic()  # reads ANTHROPIC_API_KEY
+        client = anthropic.Anthropic()
         _ADAPTER = AnthropicLLMAdapter(client=client)
     return _ADAPTER
 
 
 def lambda_handler(event, context):
-    """Step Functions entrypoint.
-
-    Args:
-        event:   {"story_id", "hero", "theme", "challenge", "strength", ...}
-        context: AWS Lambda context (unused).
-
-    Returns:
-        event + {"pages": [...]} — input keys pass through untouched.
-    """
+    """Step Functions entrypoint."""
     selections = {
         "hero":      event["hero"],
         "theme":     event["theme"],

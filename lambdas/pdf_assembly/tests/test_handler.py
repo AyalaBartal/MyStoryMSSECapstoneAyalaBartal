@@ -45,7 +45,8 @@ def stub_aws(monkeypatch):
     """
     monkeypatch.setattr(handler, "_S3_CLIENT", None)
     monkeypatch.setattr(handler, "_DDB_TABLE", None)
-    monkeypatch.setattr(handler, "_BUCKET", None)
+    monkeypatch.setattr(handler, "_IMAGES_BUCKET", None)
+    monkeypatch.setattr(handler, "_PDFS_BUCKET", None)
 
     download_calls = []
 

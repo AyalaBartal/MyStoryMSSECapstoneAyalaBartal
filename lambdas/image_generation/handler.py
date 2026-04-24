@@ -1,16 +1,14 @@
 """AWS Lambda entrypoint for image_generation.
 
-Invoked by Step Functions with the input from story_generation:
-    {"story_id", "hero", "theme", "challenge", "strength",
-     "pages": [{"page_num", "text"}, ...]}
+Input:  {"story_id", "hero", "theme", "challenge", "strength",
+         "pages": [{"page_num", "text"}]}
+Output: input + {"image_s3_keys": [...]}.
 
-Returns the input dict plus "image_s3_keys": [5 keys] — preserving
-all input keys so the next step (pdf_assembly) has what it needs.
-
-Error handling:
-    Exceptions bubble up. Step Functions catches them and marks the
-    execution FAILED. This Lambda doesn't try/except — swallowing
-    errors would hide real production issues from CloudWatch alarms.
+Env:
+    IMAGES_BUCKET      — S3 bucket for page illustrations (CDK).
+    OPENAI_SECRET_ARN  — Secrets Manager ARN (production); resolves to
+                         OPENAI_API_KEY at cold start.
+    OPENAI_API_KEY     — direct key (local dev only, via .env).
 """
 
 import os
@@ -21,39 +19,47 @@ from adapters import OpenAIImageAdapter
 from service import generate_images
 
 
-# Module-level cache — Lambda containers are reused across invocations,
-# so building the OpenAI client + S3 client once per cold start saves
-# meaningful latency per warm call.
 _ADAPTER = None
 _S3_CLIENT = None
 _BUCKET = None
 
 
-def _get_adapter():
-    """Lazily build the image adapter on first call, cache for reuse.
+def _ensure_api_key_loaded():
+    """Fetch OPENAI_API_KEY from Secrets Manager if not already in env.
 
-    Deferred import of `openai` so the module loads fast at cold start.
-    Tests monkeypatch this to return a MockImageAdapter and stay offline.
+    Local dev: .env provides OPENAI_API_KEY — no-op.
+    Lambda:    OPENAI_SECRET_ARN provided by CDK; we fetch and cache
+               the real key into os.environ so openai.OpenAI() reads it
+               through its standard env-var path.
     """
+    if "OPENAI_API_KEY" in os.environ:
+        return
+    secret_arn = os.environ.get("OPENAI_SECRET_ARN")
+    if not secret_arn:
+        raise RuntimeError(
+            "Neither OPENAI_API_KEY nor OPENAI_SECRET_ARN is set."
+        )
+    sm = boto3.client("secretsmanager")
+    response = sm.get_secret_value(SecretId=secret_arn)
+    os.environ["OPENAI_API_KEY"] = response["SecretString"]
+
+
+def _get_adapter():
     global _ADAPTER
     if _ADAPTER is None:
+        _ensure_api_key_loaded()
         import openai
-        client = openai.OpenAI()  # reads OPENAI_API_KEY
+        client = openai.OpenAI()
         _ADAPTER = OpenAIImageAdapter(client=client)
     return _ADAPTER
 
 
 def _get_s3_uploader():
-    """Return a callable (key, body, content_type) -> None bound to the
-    S3 client and target bucket.
-
-    Wrapping boto3 in a simple callable shape means service.py never
-    imports boto3 — all AWS coupling lives right here.
-    """
+    """Uploader bound to the IMAGES_BUCKET."""
     global _S3_CLIENT, _BUCKET
     if _S3_CLIENT is None:
         _S3_CLIENT = boto3.client("s3")
-        _BUCKET = os.environ["PDFS_BUCKET"]
+        _BUCKET = os.environ["IMAGES_BUCKET"]
 
     def upload(key: str, body: bytes, content_type: str) -> None:
         _S3_CLIENT.put_object(
@@ -67,15 +73,6 @@ def _get_s3_uploader():
 
 
 def lambda_handler(event, context):
-    """Step Functions entrypoint.
-
-    Args:
-        event:   from story_generation — see module docstring.
-        context: AWS Lambda context (unused).
-
-    Returns:
-        event + {"image_s3_keys": [...]} — input keys pass through.
-    """
     keys = generate_images(
         story_id=event["story_id"],
         hero=event["hero"],
