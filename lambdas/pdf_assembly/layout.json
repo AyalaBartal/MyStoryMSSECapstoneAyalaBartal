@@ -2,14 +2,14 @@
   "page_size": "letter",
   "margin_pt": 54,
   "image": {
-    "width_pt": 450,
-    "height_pt": 450,
-    "top_padding_pt": 50
+    "width_pt": 400,
+    "height_pt": 400,
+    "top_padding_pt": 40
   },
   "text": {
     "font_name": "Helvetica",
-    "font_size_pt": 14,
-    "leading_pt": 20,
-    "top_padding_pt": 30
+    "font_size_pt": 12,
+    "leading_pt": 16,
+    "top_padding_pt": 20
   }
 }

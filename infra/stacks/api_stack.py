@@ -20,7 +20,8 @@ class ApiStack(cdk.Stack):
             function_name="my-story-entry",
             runtime=lambda_.Runtime.PYTHON_3_11,
             handler="handler.lambda_handler",
-            code=lambda_.Code.from_asset("../lambdas/entry"),
+            architecture=lambda_.Architecture.ARM_64,
+            code=lambda_.Code.from_asset("lambda_packages/entry.zip"),
             timeout=cdk.Duration.seconds(30),
             environment={
                 "STORIES_TABLE": storage.stories_table.table_name,
@@ -36,7 +37,8 @@ class ApiStack(cdk.Stack):
             function_name="my-story-retrieval",
             runtime=lambda_.Runtime.PYTHON_3_11,
             handler="handler.lambda_handler",
-            code=lambda_.Code.from_asset("../lambdas/retrieval"),
+            architecture=lambda_.Architecture.ARM_64,
+            code=lambda_.Code.from_asset("lambda_packages/retrieval.zip"),
             timeout=cdk.Duration.seconds(30),
             environment={
                 "STORIES_TABLE": storage.stories_table.table_name,
