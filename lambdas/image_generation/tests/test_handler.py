@@ -17,11 +17,11 @@ SAMPLE_EVENT = {
     "challenge": "asteroid",
     "strength": "super_smart",
     "pages": [
-        {"page_num": 1, "text": "Page 1 text"},
-        {"page_num": 2, "text": "Page 2 text"},
-        {"page_num": 3, "text": "Page 3 text"},
-        {"page_num": 4, "text": "Page 4 text"},
-        {"page_num": 5, "text": "Page 5 text"},
+        {"page_num": 1, "text": "Page 1 text", "image_prompt": "Page 1 image prompt"},
+        {"page_num": 2, "text": "Page 2 text", "image_prompt": "Page 2 image prompt"},
+        {"page_num": 3, "text": "Page 3 text", "image_prompt": "Page 3 image prompt"},
+        {"page_num": 4, "text": "Page 4 text", "image_prompt": "Page 4 image prompt"},
+        {"page_num": 5, "text": "Page 5 text", "image_prompt": "Page 5 image prompt"},
     ],
 }
 

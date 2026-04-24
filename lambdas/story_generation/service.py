@@ -97,13 +97,16 @@ def parse_llm_response(raw: str) -> List[dict]:
     for i, page in enumerate(data["pages"], start=1):
         if not isinstance(page, dict):
             raise ValueError(f"Page {i} is not a JSON object")
-        if "page_num" not in page or "text" not in page:
-            raise ValueError(
-                f"Page {i} missing required 'page_num' or 'text' field"
-            )
-        pages.append(
-            {"page_num": int(page["page_num"]), "text": str(page["text"])}
-        )
+        for required in ("page_num", "text", "image_prompt"):
+            if required not in page:
+                raise ValueError(
+                    f"Page {i} missing required '{required}' field"
+                )
+        pages.append({
+            "page_num": int(page["page_num"]),
+            "text": str(page["text"]),
+            "image_prompt": str(page["image_prompt"]),
+        })
     return pages
 
 

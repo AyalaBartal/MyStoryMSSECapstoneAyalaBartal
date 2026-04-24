@@ -38,23 +38,18 @@ def _humanize(value: str) -> str:
 
 
 def build_image_prompt(
-    page_text: str, hero: str, theme: str, style_template: str
+    page_image_prompt: str, hero: str, theme: str, style_template: str
 ) -> str:
-    """Substitute per-page values into the style template.
+    """Wrap Claude's sanitized image_prompt with our style layer.
 
-    Args:
-        page_text:      story text for this specific page (from LLM).
-        hero:           schema value (e.g., 'girl') — humanized before use.
-        theme:          schema value (e.g., 'under_the_sea') — humanized.
-        style_template: contents of prompt_style.txt.
-
-    Raises:
-        KeyError: if the template references a field not provided.
+    Claude produced page_image_prompt already safe for DALL-E's content
+    filter. This function just adds the consistent style wrapper
+    (watercolor, no text, etc.) without reintroducing dramatic language.
     """
     return style_template.format(
         hero=_humanize(hero),
         theme=_humanize(theme),
-        page_text=page_text,
+        image_prompt=page_image_prompt,
     )
 
 
@@ -105,7 +100,7 @@ def generate_images(
     # of input order.
     for page in sorted(pages, key=lambda p: p["page_num"]):
         prompt = build_image_prompt(
-            page_text=page["text"],
+            page_image_prompt=page["image_prompt"],
             hero=hero,
             theme=theme,
             style_template=style,
