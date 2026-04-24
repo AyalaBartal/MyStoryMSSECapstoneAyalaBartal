@@ -60,7 +60,11 @@ class TestParseLLMResponse:
     def _valid_payload(self) -> str:
         return json.dumps({
             "pages": [
-                {"page_num": i, "text": f"Page {i} text"}
+                {
+                    "page_num": i,
+                    "text": f"Page {i} text",
+                    "image_prompt": f"Page {i} image prompt",
+                }
                 for i in range(1, EXPECTED_PAGE_COUNT + 1)
             ]
         })
@@ -68,8 +72,16 @@ class TestParseLLMResponse:
     def test_happy_path_returns_pages(self):
         pages = parse_llm_response(self._valid_payload())
         assert len(pages) == EXPECTED_PAGE_COUNT
-        assert pages[0] == {"page_num": 1, "text": "Page 1 text"}
-        assert pages[4] == {"page_num": 5, "text": "Page 5 text"}
+        assert pages[0] == {
+            "page_num": 1,
+            "text": "Page 1 text",
+            "image_prompt": "Page 1 image prompt",
+        }
+        assert pages[4] == {
+            "page_num": 5,
+            "text": "Page 5 text",
+            "image_prompt": "Page 5 image prompt",
+        }
 
     def test_strips_markdown_code_fences(self):
         wrapped = f"```json\n{self._valid_payload()}\n```"
@@ -129,7 +141,10 @@ class TestGenerateStory:
             template_loader=lambda: "unused template {hero}{theme}{challenge}{strength}",
         )
         assert len(result) == EXPECTED_PAGE_COUNT
-        assert all("page_num" in p and "text" in p for p in result)
+        assert all(
+            "page_num" in p and "text" in p and "image_prompt" in p
+            for p in result
+        )
 
     def test_adapter_receives_built_prompt(self):
         """The adapter should see the fully-substituted prompt, not the raw template."""

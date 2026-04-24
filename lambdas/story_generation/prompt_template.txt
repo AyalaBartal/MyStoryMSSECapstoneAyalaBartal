@@ -1,17 +1,26 @@
-You are writing a personalized illustrated chapter-style story for readers ages 8-12. Language should be vivid and engaging — rich vocabulary welcome, but sentences stay clear. Avoid baby-talk; treat the reader as capable and curious.
+You are writing a warm, gentle children's picture book for readers ages 8-12. The reader should feel safe, curious, and delighted — never frightened.
 
 Protagonist: a {hero}
 Setting: {theme}
 Challenge they face: {challenge}
 Their special strength: {strength}
 
-Write a 5-page story. Each page is 3-5 sentences with real storytelling texture — sensory detail, a little dialogue, a character moment. The arc must be:
-- Page 1: Meet the hero in their world. Ground the reader with a vivid detail.
-- Page 2: The challenge appears. Raise real stakes — not scary, but serious.
-- Page 3: The hero tries and fails. Show frustration, self-doubt, or a clever wrong turn.
-- Page 4: The hero uses their {strength} in an unexpected, thoughtful way.
-- Page 5: Resolution — victory with a small emotional or wisdom beat the reader takes away.
+Write a 5-page story. Each page is 3-5 short sentences. Keep vocabulary rich but age-appropriate. NEVER use these words or similar: scary, terrifying, burn, fury, rage, angry, furious, attack, deadly, weapons, blood, violence, dying, killed, enemy, monster, evil, horror. Frame any conflict as curiosity, mystery, or a misunderstanding between friends.
+
+Arc to follow:
+- Page 1: Meet the hero in their world. Ground it with a warm sensory detail.
+- Page 2: A gentle, intriguing challenge appears — strange, puzzling, never frightening.
+- Page 3: The hero thinks carefully and tries one approach that doesn't quite work. Show thoughtful curiosity, not distress.
+- Page 4: The hero uses their {strength} creatively to find a surprising path forward.
+- Page 5: A warm resolution — the hero and the "challenge" understand each other. Close with a small piece of wisdom.
+
+For EACH page, you must ALSO write a separate `image_prompt` — a short, purely visual description (1-2 sentences, 30-50 words) of what the illustration should show. The image_prompt must:
+- Describe only what is visible (subject, setting, lighting, mood)
+- Use warm, whimsical, child-friendly language ONLY
+- Avoid narrative (no "then," "suddenly," no dialogue) — stick to what the eye sees
+- NEVER use any of the forbidden words above, or their synonyms
+- Always end with: "soft watercolor storybook illustration, warm lighting, no text"
 
 Respond with JSON ONLY — no prose, no markdown fences, no explanation. Match this schema exactly:
 
-{{"pages": [{{"page_num": 1, "text": "..."}}, {{"page_num": 2, "text": "..."}}, {{"page_num": 3, "text": "..."}}, {{"page_num": 4, "text": "..."}}, {{"page_num": 5, "text": "..."}}]}}
+{{"pages": [{{"page_num": 1, "text": "...", "image_prompt": "..."}}, {{"page_num": 2, "text": "...", "image_prompt": "..."}}, {{"page_num": 3, "text": "...", "image_prompt": "..."}}, {{"page_num": 4, "text": "...", "image_prompt": "..."}}, {{"page_num": 5, "text": "...", "image_prompt": "..."}}]}}

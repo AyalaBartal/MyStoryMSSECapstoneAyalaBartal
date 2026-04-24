@@ -37,11 +37,31 @@ class MockLLMAdapter(LLMAdapter):
         return json.dumps(
             {
                 "pages": [
-                    {"page_num": 1, "text": "Mock page 1 — hero's world."},
-                    {"page_num": 2, "text": "Mock page 2 — challenge appears."},
-                    {"page_num": 3, "text": "Mock page 3 — hero tries and fails."},
-                    {"page_num": 4, "text": "Mock page 4 — hero uses their strength."},
-                    {"page_num": 5, "text": "Mock page 5 — victory and warm ending."},
+                    {
+                        "page_num": 1,
+                        "text": "Mock page 1 — hero's world.",
+                        "image_prompt": "Mock image prompt for page 1",
+                    },
+                    {
+                        "page_num": 2,
+                        "text": "Mock page 2 — challenge appears.",
+                        "image_prompt": "Mock image prompt for page 2",
+                    },
+                    {
+                        "page_num": 3,
+                        "text": "Mock page 3 — hero tries and fails.",
+                        "image_prompt": "Mock image prompt for page 3",
+                    },
+                    {
+                        "page_num": 4,
+                        "text": "Mock page 4 — hero uses their strength.",
+                        "image_prompt": "Mock image prompt for page 4",
+                    },
+                    {
+                        "page_num": 5,
+                        "text": "Mock page 5 — victory and warm ending.",
+                        "image_prompt": "Mock image prompt for page 5",
+                    },
                 ]
             }
         )

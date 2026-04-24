@@ -1,11 +1,3 @@
-Generate a single warm, family-friendly children's storybook illustration. NEVER include text, captions, logos, speech bubbles, or written words anywhere in the image.
+{image_prompt}
 
-Art style: soft watercolor with gentle digital gouache shading. Warm natural lighting. Gentle storybook aesthetic — think classic picture-book charm, NOT photorealistic, NOT scary, NOT violent. Safe and age-appropriate for readers ages 8-12. 1:1 square composition.
-
-Character: a {hero} — clearly visible, expressive, the focal figure.
-Setting: {theme}, rendered as a whimsical non-threatening storybook environment.
-
-Depict this gentle scene from a children's adventure story:
-{page_text}
-
-Important: keep the tone friendly and whimsical. Any conflict or challenge should feel like a storybook moment — a curious dragon who becomes a friend, a puzzle to solve, a mystery to uncover — never graphic, frightening, or threatening.
+Art style: soft watercolor storybook illustration with gentle digital gouache shading, warm natural lighting, 1:1 square composition. The image features a {hero} in a {theme} setting. NO text, captions, logos, speech bubbles, or written words anywhere in the image. Family-friendly, whimsical, never scary.
