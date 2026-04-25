@@ -14,10 +14,11 @@ from adapters import MockLLMAdapter
 # Shape Step Functions passes to us (same as entry Lambda's output).
 SAMPLE_EVENT = {
     "story_id": "01234567-89ab-4def-89ab-0123456789ab",
+    "name": "Maya",
+    "age": "9",
     "hero": "girl",
     "theme": "space",
-    "challenge": "asteroid",
-    "strength": "super_smart",
+    "adventure": "secret_map",
 }
 
 
@@ -45,7 +46,7 @@ class TestLambdaHandler:
         """All card selections pass through untouched — image_generation
         needs them too."""
         result = handler.lambda_handler(SAMPLE_EVENT, context=None)
-        for key in ("story_id", "hero", "theme", "challenge", "strength"):
+        for key in ("story_id", "name", "age", "hero", "theme", "adventure"):
             assert result[key] == SAMPLE_EVENT[key]
 
     def test_pages_have_expected_shape(self):

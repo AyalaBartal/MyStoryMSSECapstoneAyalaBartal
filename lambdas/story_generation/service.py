@@ -39,22 +39,22 @@ def _humanize(value: str) -> str:
 
 
 def build_prompt(selections: dict, template: str) -> str:
-    """Substitute card selections into the prompt template.
+    """Substitute name, age, and card selections into the prompt template.
 
     Args:
-        selections: {"hero": ..., "theme": ..., "challenge": ..., "strength": ...}
-        template:   prompt_template.txt contents — must contain the 4
-                    placeholders.
+        selections: {"name", "age", "hero", "theme", "adventure"}
+        template:   prompt_template.txt contents.
 
     Raises:
-        KeyError: if the template references a field not in selections,
-                  or if selections is missing a field the template needs.
+        KeyError: if template references a field not in selections, or
+                  selections is missing a field the template needs.
     """
     return template.format(
+        name=selections["name"],
+        age=selections["age"],
         hero=_humanize(selections["hero"]),
         theme=_humanize(selections["theme"]),
-        challenge=_humanize(selections["challenge"]),
-        strength=_humanize(selections["strength"]),
+        adventure=_humanize(selections["adventure"]),
     )
 
 

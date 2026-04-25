@@ -1,6 +1,6 @@
 """AWS Lambda entrypoint for image_generation.
 
-Input:  {"story_id", "hero", "theme", "challenge", "strength",
+Input:  {"story_id", "hero", "theme", "adventure", "strength",
          "pages": [{"page_num", "text"}]}
 Output: input + {"image_s3_keys": [...]}.
 

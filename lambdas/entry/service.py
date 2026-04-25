@@ -14,6 +14,8 @@ from typing import Callable
 # shows finished PDFs to users; after a month, the record (and the
 # pre-signed URL contract) can be safely forgotten.
 STORY_TTL_SECONDS = 30 * 24 * 60 * 60
+NAME_MIN_LENGTH = 1
+NAME_MAX_LENGTH = 30
 
 # Schema-driven validation: the list of valid card selections lives in
 # cards_schema.json, not in code. Product/content changes (e.g., adding
@@ -38,19 +40,23 @@ def _load_schema(path: Path) -> dict:
 VALID_SELECTIONS = _load_schema(_SCHEMA_PATH)
 
 def validate_card_selections(body: dict) -> dict:
-    """Validate the four card selections against the whitelist.
+    """Validate schema whitelists + the free-text name field.
 
     Returns:
-        The validated selections (subset of `body`, only the expected fields).
+        The validated selections — whitelist fields straight from the
+        schema plus the stripped name.
 
     Raises:
-        ValueError: if body is not a dict, a field is missing, or a
-                    value is not in the allowed set.
+        ValueError: if body isn't a dict, a whitelist field is missing
+                    or invalid, or name is missing / not a string /
+                    out of the allowed length range.
     """
     if not isinstance(body, dict):
         raise ValueError("Request body must be a JSON object")
 
     selections = {}
+
+    # Whitelist-validated fields (loaded from cards_schema.json).
     for field, allowed in VALID_SELECTIONS.items():
         if field not in body:
             raise ValueError(f"Missing required field: {field}")
@@ -60,6 +66,20 @@ def validate_card_selections(body: dict) -> dict:
                 f"Must be one of {allowed}"
             )
         selections[field] = body[field]
+
+    # Free-text name — whitespace-stripped, length-bounded.
+    if "name" not in body:
+        raise ValueError("Missing required field: name")
+    name = body["name"]
+    if not isinstance(name, str):
+        raise ValueError("Name must be a string")
+    name = name.strip()
+    if len(name) < NAME_MIN_LENGTH or len(name) > NAME_MAX_LENGTH:
+        raise ValueError(
+            f"Name must be {NAME_MIN_LENGTH}-{NAME_MAX_LENGTH} characters"
+        )
+    selections["name"] = name
+
     return selections
 
 

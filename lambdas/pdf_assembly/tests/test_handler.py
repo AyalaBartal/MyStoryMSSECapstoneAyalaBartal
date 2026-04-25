@@ -24,7 +24,7 @@ SAMPLE_EVENT = {
     "story_id": "01234567-89ab-4def-89ab-0123456789ab",
     "hero": "girl",
     "theme": "space",
-    "challenge": "asteroid",
+    "adventure": "asteroid",
     "strength": "super_smart",
     "pages": [
         {"page_num": i, "text": f"Page {i} text"} for i in range(1, 6)
@@ -89,7 +89,7 @@ class TestLambdaHandler:
         Lambda's return shows the whole story context."""
         result = handler.lambda_handler(SAMPLE_EVENT, context=None)
         for key in (
-            "story_id", "hero", "theme", "challenge",
+            "story_id", "hero", "theme", "adventure",
             "strength", "pages", "image_s3_keys",
         ):
             assert result[key] == SAMPLE_EVENT[key]

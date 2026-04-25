@@ -2,7 +2,7 @@
 
 Invoked by Step Functions with the input:
     {"story_id": "...", "hero": "...", "theme": "...",
-     "challenge": "...", "strength": "..."}
+     "adventure": "...", "strength": "..."}
 
 Returns the input dict plus a "pages" array.
 
@@ -62,10 +62,11 @@ def _get_adapter():
 def lambda_handler(event, context):
     """Step Functions entrypoint."""
     selections = {
-        "hero":      event["hero"],
-        "theme":     event["theme"],
-        "challenge": event["challenge"],
-        "strength":  event["strength"],
+        "name": event["name"],
+        "age": event["age"],
+        "hero": event["hero"],
+        "theme": event["theme"],
+        "adventure": event["adventure"],
     }
     pages = generate_story(selections, adapter=_get_adapter())
     return {**event, "pages": pages}

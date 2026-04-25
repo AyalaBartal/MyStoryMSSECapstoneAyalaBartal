@@ -12,7 +12,7 @@ Accepts card selections from the frontend, creates a story record in DynamoDB, a
 {
   "hero":      "boy" | "girl",
   "theme":     "space" | "under_the_sea" | "medieval_fantasy" | "dinosaurs",
-  "challenge": "asteroid" | "wizard_witch" | "dragon" | "volcano",
+  "adventure": "asteroid" | "wizard_witch" | "dragon" | "volcano",
   "strength":  "super_strong" | "friendship" | "super_smart" | "super_speed"
 }
 ```

@@ -27,7 +27,7 @@
 
 ## 1. Project Overview
 
-**My Story** is a serverless web application that lets children ages 5–8 create a personalized illustrated storybook by picking four cards: a **Hero**, an **Adventure Theme**, a **Challenge**, and a **Secret Strength**. The backend generates a unique 7-page story (written by a fine-tuned LLaMA 3 8B language model) with matching AI-generated illustrations (from a fine-tuned Stable Diffusion model), assembles the result into a PDF storybook, and delivers it back to the child as a downloadable file.
+**My Story** is a serverless web application that lets children ages 5–8 create a personalized illustrated storybook by picking four cards: a **Hero**, an **Adventure Theme**, a **adventure**, and a **Secret Strength**. The backend generates a unique 7-page story (written by a fine-tuned LLaMA 3 8B language model) with matching AI-generated illustrations (from a fine-tuned Stable Diffusion model), assembles the result into a PDF storybook, and delivers it back to the child as a downloadable file.
 
 The card system yields **128 unique story combinations** (2 × 4 × 4 × 4).
 
@@ -52,7 +52,7 @@ The card system yields **128 unique story combinations** (2 × 4 × 4 × 4).
 
 1. As a child, I can see and select a **Hero** card (boy or girl) with an illustration so I can identify with my hero.
 2. As a child, I can select an **Adventure Theme** card (Space, Under the Sea, Medieval Fantasy, Dinosaurs) so my story world is set.
-3. As a child, I can select a **Challenge** card and see how it adapts to my chosen theme.
+3. As a child, I can select a **adventure** card and see how it adapts to my chosen theme.
 4. As a child, I can select a **Secret Strength** card so my hero has a special power.
 5. As a user, I can click **Generate My Story** and receive a personalized 7-page story based on my 4 card selections.
 6. As a user, I can see **AI-generated illustrations** alongside the story text for each illustrated page.
@@ -267,7 +267,7 @@ Honest snapshot of the repo as of the document's `Last updated` date, cross-refe
 
 - Unit tests — **no `tests/` folders exist** under any Lambda, though the CI workflow expects them (currently soft-failing with `|| true`).
 - ML training code — `ml/llm/train.py`, `evaluate.py` and `ml/mage_model/train.py`, `evaluate.py` are all empty files.
-- Pre-generated card illustrations (14 total: 2 heroes + 4 themes + 4 challenges + 4 strengths).
+- Pre-generated card illustrations (14 total: 2 heroes + 4 themes + 4 adventures + 4 strengths).
 - Design PDF layout.
 - "Saved stories" page.
 - Mobile-responsive CSS.

@@ -42,10 +42,11 @@ def main():
         sys.exit(1)
 
     selections = {
+        "name": "Maya",
+        "age": "9",
         "hero": "girl",
         "theme": "under_the_sea",
-        "challenge": "dragon",
-        "strength": "super_smart",
+        "adventure": "talking_animal",
     }
 
     print(f"Generating story for: {selections}\n")

@@ -10,7 +10,7 @@ Final stage of the pipeline. Combines story text + images into a PDF, uploads to
   "story_id": "uuid-string",
   "hero": "girl",
   "theme": "space",
-  "challenge": "asteroid",
+  "adventure": "asteroid",
   "strength": "super_smart",
   "pages": [
     {"page_num": 1, "text": "..."},
