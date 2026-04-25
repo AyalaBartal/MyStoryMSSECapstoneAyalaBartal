@@ -37,4 +37,5 @@ infra/lambda_packages/
 .pytest_cache/
 htmlcov/
 scripts/smoke_output/
+scripts/card_output/
 infra/lambda_packages/

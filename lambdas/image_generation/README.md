@@ -10,7 +10,7 @@ Third stage of the pipeline. Takes the 5 story pages, generates an illustration 
   "story_id": "uuid-string",
   "hero": "girl",
   "theme": "space",
-  "challenge": "asteroid",
+  "adventure": "asteroid",
   "strength": "super_smart",
   "pages": [
     {"page_num": 1, "text": "..."},

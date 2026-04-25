@@ -10,7 +10,7 @@ Second stage of the pipeline. Takes card selections, calls an LLM, returns 5 sto
   "story_id": "uuid-string",
   "hero": "girl",
   "theme": "space",
-  "challenge": "asteroid",
+  "adventure": "asteroid",
   "strength": "super_smart"
 }
 ```

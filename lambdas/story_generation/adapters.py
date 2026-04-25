@@ -44,7 +44,7 @@ class MockLLMAdapter(LLMAdapter):
                     },
                     {
                         "page_num": 2,
-                        "text": "Mock page 2 — challenge appears.",
+                        "text": "Mock page 2 — adventure appears.",
                         "image_prompt": "Mock image prompt for page 2",
                     },
                     {

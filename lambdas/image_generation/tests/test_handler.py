@@ -14,7 +14,7 @@ SAMPLE_EVENT = {
     "story_id": "01234567-89ab-4def-89ab-0123456789ab",
     "hero": "girl",
     "theme": "space",
-    "challenge": "asteroid",
+    "adventure": "asteroid",
     "strength": "super_smart",
     "pages": [
         {"page_num": 1, "text": "Page 1 text", "image_prompt": "Page 1 image prompt"},
@@ -71,7 +71,7 @@ class TestLambdaHandler:
     def test_input_fields_preserved(self):
         """All input fields pass through — pdf_assembly needs them."""
         result = handler.lambda_handler(SAMPLE_EVENT, context=None)
-        for key in ("story_id", "hero", "theme", "challenge", "strength", "pages"):
+        for key in ("story_id", "hero", "theme", "adventure", "strength", "pages"):
             assert result[key] == SAMPLE_EVENT[key]
 
     def test_uploader_called_once_per_page(self):

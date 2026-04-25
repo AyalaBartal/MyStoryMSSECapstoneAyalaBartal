@@ -4,32 +4,51 @@ import "./App.css";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL;
 const POLL_INTERVAL_MS = 3000;
-const POLL_TIMEOUT_MS = 120_000; // 2 minutes
+const POLL_TIMEOUT_MS = 120_000;
+const NAME_MAX_LENGTH = 30;
+const AGE_OPTIONS = ["4", "5", "6", "7", "8", "9", "10", "11", "12"];
 
-/**
- * Four high-level screens driven by `status`:
- *   "picking"    — card selection grid
- *   "generating" — spinner + polling loop
- *   "complete"   — download link + make-another button
- *   "failed"     — error message + try-again button
- */
+function CardVisual({ opt }) {
+  const [imgFailed, setImgFailed] = useState(false);
+  if (opt.image && !imgFailed) {
+    return (
+      <img
+        src={opt.image}
+        alt={opt.label}
+        className="card-image"
+        onError={() => setImgFailed(true)}
+      />
+    );
+  }
+  if (opt.emoji) return <span className="emoji">{opt.emoji}</span>;
+  return <span className="big-number">{opt.label}</span>;
+}
+
 export default function App() {
+  const [name, setName] = useState("");
+  const [age, setAge] = useState("");
   const [selections, setSelections] = useState({});
   const [status, setStatus] = useState("picking");
   const [storyId, setStoryId] = useState(null);
   const [downloadUrl, setDownloadUrl] = useState(null);
   const [errorMessage, setErrorMessage] = useState(null);
 
-  const allPicked = CARDS.every((c) => selections[c.category]);
+  const trimmedName = name.trim();
+  const allCardsPicked = CARDS.every((c) => selections[c.category]);
+  const nameValid =
+    trimmedName.length >= 1 && trimmedName.length <= NAME_MAX_LENGTH;
+  const ageValid = AGE_OPTIONS.includes(age);
+  const canGenerate = allCardsPicked && nameValid && ageValid;
 
   async function startGeneration() {
     setStatus("generating");
     setErrorMessage(null);
     try {
+      const body = { name: trimmedName, age, ...selections };
       const res = await fetch(`${API_BASE}/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(selections),
+        body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error(`POST /generate → ${res.status}`);
       const data = await res.json();
@@ -40,10 +59,8 @@ export default function App() {
     }
   }
 
-  // Polling loop — runs while status === "generating" + we have a story_id.
   useEffect(() => {
     if (status !== "generating" || !storyId) return;
-
     const startedAt = Date.now();
     let cancelled = false;
 
@@ -81,6 +98,8 @@ export default function App() {
   }, [status, storyId]);
 
   function reset() {
+    setName("");
+    setAge("");
     setSelections({});
     setStatus("picking");
     setStoryId(null);
@@ -94,7 +113,7 @@ export default function App() {
         <h1>📖 My Story</h1>
         <div className="status-card">
           <div className="spinner" />
-          <p>Writing your story…</p>
+          <p>Writing {trimmedName}'s story…</p>
           <p className="muted">This takes about a minute.</p>
         </div>
       </main>
@@ -107,9 +126,9 @@ export default function App() {
         <h1>📖 My Story</h1>
         <div className="status-card">
           <p className="big-emoji">🎉</p>
-          <p>Your story is ready!</p>
+          <p>{trimmedName}'s story is ready!</p>
           <a className="primary-btn" href={downloadUrl} target="_blank" rel="noreferrer">
-            📄 Open my book
+            📄 Open the book
           </a>
           <button className="secondary-btn" onClick={reset}>
             Make another
@@ -139,8 +158,37 @@ export default function App() {
     <main className="app">
       <header>
         <h1>📖 My Story</h1>
-        <p className="subtitle">Pick four cards — get a personalized book</p>
+        <p className="subtitle">Make a personalized book just for you</p>
       </header>
+
+      <section className="card-section name-age-section">
+        <div className="field">
+          <label htmlFor="name">What's your name?</label>
+          <input
+            id="name"
+            type="text"
+            className="text-input"
+            value={name}
+            maxLength={NAME_MAX_LENGTH}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Type your name"
+          />
+        </div>
+        <div className="field">
+          <label htmlFor="age">How old are you?</label>
+          <select
+            id="age"
+            className="text-input"
+            value={age}
+            onChange={(e) => setAge(e.target.value)}
+          >
+            <option value="" disabled>Pick an age</option>
+            {AGE_OPTIONS.map((a) => (
+              <option key={a} value={a}>{a}</option>
+            ))}
+          </select>
+        </div>
+      </section>
 
       {CARDS.map((card) => (
         <section key={card.category} className="card-section">
@@ -156,8 +204,8 @@ export default function App() {
                     setSelections({ ...selections, [card.category]: opt.value })
                   }
                 >
-                  <span className="emoji">{opt.emoji}</span>
-                  <span className="label">{opt.label}</span>
+                  <CardVisual opt={opt} />
+                  {opt.label && opt.emoji && <span className="label">{opt.label}</span>}
                 </button>
               );
             })}
@@ -167,7 +215,7 @@ export default function App() {
 
       <button
         className="primary-btn sticky"
-        disabled={!allPicked}
+        disabled={!canGenerate}
         onClick={startGeneration}
       >
         ✨ Create my story ✨

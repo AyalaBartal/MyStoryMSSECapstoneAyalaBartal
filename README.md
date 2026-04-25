@@ -12,7 +12,7 @@ Built as part of the **MSSE Capstone Project** at Quantic School of Business and
 Children select 4 cards:
 - **Hero** — Boy or Girl
 - **Adventure Theme** — Space, Under the Sea, Medieval Fantasy, or Dinosaurs
-- **Challenge** — Surprise Asteroid, Evil Wizard/Witch, Dragon, or Volcano Eruption
+- **adventure** — Surprise Asteroid, Evil Wizard/Witch, Dragon, or Volcano Eruption
 - **Secret Strength** — Super Strong, Friendship, Super Smart, or Super Speed
 
 The app generates a unique **7-page personalized storybook** following a proven 5-beat narrative structure, illustrated with AI-generated artwork, and delivered as a downloadable PDF.

@@ -1,6 +1,6 @@
 {
   "hero":      ["boy", "girl"],
   "theme":     ["space", "under_the_sea", "medieval_fantasy", "dinosaurs"],
-  "challenge": ["asteroid", "wizard_witch", "dragon", "volcano"],
-  "strength":  ["super_strong", "friendship", "super_smart", "super_speed"]
+  "adventure": ["secret_map", "talking_animal", "time_machine", "magic_key"],
+  "age":       ["4", "5", "6", "7", "8", "9", "10", "11", "12"]
 }

@@ -16,10 +16,11 @@ from service import (
 
 # A complete, valid card selection.
 VALID_SELECTIONS = {
+    "name": "Maya",
+    "age": "9",
     "hero": "girl",
     "theme": "under_the_sea",
-    "challenge": "wizard_witch",
-    "strength": "super_smart",
+    "adventure": "talking_animal",
 }
 
 
@@ -36,24 +37,28 @@ class TestHumanize:
 
 class TestBuildPrompt:
     def test_all_placeholders_substituted(self):
-        template = "Hero: {hero}, setting: {theme}, foe: {challenge}, power: {strength}."
+        template = "Name: {name}, age {age}, a {hero} in {theme} facing {adventure}."
         result = build_prompt(VALID_SELECTIONS, template)
+        assert "Maya" in result
+        assert "9" in result
         assert "girl" in result
-        assert "under the sea" in result  # humanized
-        assert "wizard witch" in result
-        assert "super smart" in result
-        assert "{" not in result  # no unsubstituted placeholders
+        assert "under the sea" in result
+        assert "talking animal" in result
+        assert "{" not in result
 
     def test_missing_selection_field_raises(self):
+        """If selections lack any required field, build_prompt raises KeyError.
+        (name is the first key looked up now, so the error message will say 'name',
+        not 'hero'. Just assert that SOME KeyError is raised.)"""
         template = "Hero: {hero}"
-        bad_selections = {"theme": "space"}  # no 'hero'
-        with pytest.raises(KeyError, match="hero"):
+        bad_selections = {"theme": "space"}
+        with pytest.raises(KeyError):
             build_prompt(bad_selections, template)
 
     def test_selections_are_humanized_before_substitution(self):
-        template = "The {theme} is calling."
+        template = "The {theme} is calling {name}."
         result = build_prompt(VALID_SELECTIONS, template)
-        assert result == "The under the sea is calling."
+        assert result == "The under the sea is calling Maya."
 
 
 class TestParseLLMResponse:
@@ -138,7 +143,7 @@ class TestGenerateStory:
         result = generate_story(
             VALID_SELECTIONS,
             adapter=adapter,
-            template_loader=lambda: "unused template {hero}{theme}{challenge}{strength}",
+            template_loader=lambda: "N:{name} A:{age} H:{hero} T:{theme} C:{adventure}",
         )
         assert len(result) == EXPECTED_PAGE_COUNT
         assert all(
@@ -159,10 +164,10 @@ class TestGenerateStory:
         generate_story(
             VALID_SELECTIONS,
             adapter=adapter,
-            template_loader=lambda: "Hero:{hero} Theme:{theme} Ch:{challenge} St:{strength}",
+            template_loader=lambda: "N:{name} A:{age} H:{hero} T:{theme} C:{adventure}",
         )
         assert adapter.received == (
-            "Hero:girl Theme:under the sea Ch:wizard witch St:super smart"
+            "N:Maya A:9 H:girl T:under the sea C:talking animal"
         )
 
     def test_bad_adapter_output_propagates_as_valueerror(self):
@@ -171,5 +176,5 @@ class TestGenerateStory:
             generate_story(
                 VALID_SELECTIONS,
                 adapter=adapter,
-                template_loader=lambda: "{hero}{theme}{challenge}{strength}",
+                template_loader=lambda: "N:{name} A:{age} H:{hero} T:{theme} C:{adventure}",
             )

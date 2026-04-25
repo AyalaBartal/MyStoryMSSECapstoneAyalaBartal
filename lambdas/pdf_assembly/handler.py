@@ -1,6 +1,6 @@
 """AWS Lambda entrypoint for pdf_assembly.
 
-Input:  {"story_id", "hero", "theme", "challenge", "strength",
+Input:  {"story_id", "hero", "theme", "adventure", "strength",
          "pages": [...], "image_s3_keys": [...]}
 Output: event + {"pdf_s3_key": "...", "status": "COMPLETE"}
 
