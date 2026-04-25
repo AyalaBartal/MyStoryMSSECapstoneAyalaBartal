@@ -37,14 +37,19 @@ SAMPLE_IMAGE_KEYS = [
 ]
 
 SAMPLE_LAYOUT = {
-    "page_size": "letter",
-    "margin_pt": 54,
-    "image": {"width_pt": 300, "height_pt": 300, "top_padding_pt": 50},
-    "text": {
-        "font_name": "Helvetica",
-        "font_size_pt": 14,
-        "leading_pt": 20,
-        "top_padding_pt": 30,
+    "page_size_pt": 576,
+    "age_buckets": {
+        "young": {"ages": ["4", "5", "6"], "font_size_pt": 22, "leading_pt": 28, "band_height_pt": 160},
+        "middle": {"ages": ["7", "8", "9"], "font_size_pt": 18, "leading_pt": 24, "band_height_pt": 140},
+        "older": {"ages": ["10", "11", "12"], "font_size_pt": 15, "leading_pt": 20, "band_height_pt": 120},
+    },
+    "text_band": {
+        "background_color": "#faf6f0",
+        "background_opacity": 0.92,
+        "text_color": "#2b2320",
+        "font_name": "Times-Italic",
+        "horizontal_padding_pt": 36,
+        "vertical_padding_pt": 18,
     },
 }
 
@@ -72,12 +77,12 @@ class TestPageNumFromKey:
 class TestBuildPdfBytes:
     def test_returns_valid_pdf_header(self):
         images = {i: TINY_PNG for i in range(1, 6)}
-        result = _build_pdf_bytes(SAMPLE_PAGES, images, SAMPLE_LAYOUT)
+        result = _build_pdf_bytes(SAMPLE_PAGES, images, SAMPLE_LAYOUT, "9")
         assert result[:4] == b"%PDF"
 
     def test_pdf_has_nonzero_size(self):
         images = {i: TINY_PNG for i in range(1, 6)}
-        result = _build_pdf_bytes(SAMPLE_PAGES, images, SAMPLE_LAYOUT)
+        result = _build_pdf_bytes(SAMPLE_PAGES, images, SAMPLE_LAYOUT, "9")
         assert len(result) > 1000  # real 5-page PDFs are a few KB
 
 
@@ -118,6 +123,7 @@ class TestAssemblePdf:
         kwargs = {
             "story_id": "story-123",
             "pages": SAMPLE_PAGES,
+            "age": "9",
             "image_s3_keys": SAMPLE_IMAGE_KEYS,
             "s3_downloader": downloader,
             "s3_uploader": uploader,
@@ -160,7 +166,7 @@ class TestAssemblePdf:
         """
         captured_page_nums = []
 
-        def spy_build_pdf(sorted_pages, images_by_page_num, layout):
+        def spy_build_pdf(sorted_pages, images_by_page_num, layout, age, **kwargs):
             captured_page_nums.extend(p["page_num"] for p in sorted_pages)
             return b"%PDF-stub"
 

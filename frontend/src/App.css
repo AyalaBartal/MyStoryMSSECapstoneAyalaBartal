@@ -1,7 +1,7 @@
 /* Reset + storybook color palette */
 
 :root {
-  --bg: #faf6f0;
+  --bg: #f3e0ce;
   --bg-card: #ffffff;
   --ink: #2b2320;
   --muted: #7a6a5e;
@@ -47,7 +47,6 @@ h1 {
 
 .subtitle {
   color: var(--muted);
-  /* font-style: italic;  ← delete this line */
   margin: 0;
   text-align: center;
   font-size: 1.8rem;
@@ -153,16 +152,22 @@ h2 {
 }
 
 .status-card {
-  background: var(--bg-card);
-  border-radius: 18px;
-  padding: 3rem 1.5rem;
+  background: transparent;
+  border-radius: 0;
+  padding: 1rem;
   text-align: center;
-  box-shadow: var(--shadow);
-  margin-top: 3rem;
+  box-shadow: none;
+  margin-top: 2rem;
 }
 
-.status-card p { margin: 0.5rem 0; }
-.status-card .muted { color: var(--muted); font-size: 0.9rem; }
+.status-card p {
+  margin: 0.75rem 0;
+  font-size: 1.5rem;
+}
+.status-card .muted {
+  color: var(--muted);
+  font-size: 1.1rem;
+}
 .big-emoji { font-size: 4rem; margin: 0 0 0.5rem; }
 
 .spinner {
@@ -242,5 +247,77 @@ h2 {
   font-style: italic;
 }
 
-/* If you had .name-input styles before, you can delete them — .text-input
-   replaces them for both fields. */
+/* ---------- Polaroid frame (used by both loading and complete states) ---------- */
+
+.polaroid {
+  position: relative;
+  display: inline-block;
+  margin: 1rem auto 1.25rem;
+  padding: 18px 18px 14px;
+  background: #fdfaf3;
+  border-radius: 4px;
+  box-shadow:
+    0 2px 4px rgba(40, 30, 20, 0.08),
+    0 12px 28px rgba(40, 30, 20, 0.18);
+  transform: rotate(-2.5deg);
+  transition: transform 0.3s ease;
+}
+
+.polaroid::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 4px;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 60%,
+    rgba(40, 30, 20, 0.05) 100%
+  );
+  pointer-events: none;
+}
+
+.polaroid-tape {
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  width: 90px;
+  height: 24px;
+  background: rgba(242, 213, 184, 0.7);
+  border-left: 1px dashed rgba(200, 97, 30, 0.15);
+  border-right: 1px dashed rgba(200, 97, 30, 0.15);
+  transform: translateX(-50%) rotate(-3deg);
+  box-shadow: 0 2px 4px rgba(40, 30, 20, 0.08);
+}
+
+.polaroid-photo {
+  display: block;
+  width: 320px;
+  max-width: 78vw;
+  height: auto;
+  border-radius: 2px;
+  background: #ffffff;
+}
+
+.polaroid-caption {
+  margin: 14px 6px 4px;
+  text-align: center;
+  font-family: Georgia, "Times New Roman", serif;
+  font-style: italic;
+  font-size: 1.25rem;
+  color: var(--ink);
+  letter-spacing: 0.01em;
+}
+
+/* ---------- Complete state action buttons ---------- */
+
+.action-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.action-row .secondary-btn {
+  margin-top: 0;
+}

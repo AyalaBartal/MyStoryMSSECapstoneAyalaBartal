@@ -26,6 +26,7 @@ SAMPLE_EVENT = {
     "theme": "space",
     "adventure": "asteroid",
     "strength": "super_smart",
+    "age": "9",
     "pages": [
         {"page_num": i, "text": f"Page {i} text"} for i in range(1, 6)
     ],

@@ -42,16 +42,20 @@ class MockImageAdapter(ImageAdapter):
 
 
 class OpenAIImageAdapter(ImageAdapter):
-    """Calls OpenAI DALL-E 3 via the official SDK.
+    """Calls OpenAI gpt-image-1 (gpt-4o image generation) via the official SDK.
+
+    Replaces DALL-E 3. Better at character consistency, prompt following
+    (spatial composition rules), and supports reference-image conditioning
+    for tighter character continuity across pages.
 
     The client is injected — handler.py builds it (reading OPENAI_API_KEY
     from the env) and passes it in. Tests inject a stub client and
     assert on how the adapter calls it.
     """
 
-    DEFAULT_MODEL = "dall-e-3"
+    DEFAULT_MODEL = "gpt-image-1"
     DEFAULT_SIZE = "1024x1024"
-    DEFAULT_QUALITY = "standard"
+    DEFAULT_QUALITY = "medium"  # gpt-image-1 tiers: low / medium / high
 
     def __init__(
         self,
@@ -66,13 +70,11 @@ class OpenAIImageAdapter(ImageAdapter):
         self._quality = quality
 
     def generate(self, prompt: str) -> bytes:
-        """Call DALL-E 3 and return raw PNG bytes.
+        """Call gpt-image-1 and return raw PNG bytes.
 
-        response_format='b64_json' gets us bytes directly in the response
-        payload. The alternative ('url') returns a URL that expires in
-        60 minutes — we'd have to make a second HTTP call to download
-        the image, which is slower and adds a failure mode. b64_json
-        wins for this pipeline.
+        gpt-image-1 always returns base64-encoded image data in
+        response.data[0].b64_json (no response_format parameter to set,
+        unlike DALL-E 3 where we had to opt in).
         """
         response = self._client.images.generate(
             model=self._model,
@@ -80,8 +82,6 @@ class OpenAIImageAdapter(ImageAdapter):
             size=self._size,
             quality=self._quality,
             n=1,
-            response_format="b64_json",
         )
-        # OpenAI returns data=[ImageObject(b64_json="...")].
         b64 = response.data[0].b64_json
         return base64.b64decode(b64)

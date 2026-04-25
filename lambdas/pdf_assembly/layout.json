@@ -1,15 +1,41 @@
 {
-  "page_size": "letter",
-  "margin_pt": 54,
-  "image": {
-    "width_pt": 400,
-    "height_pt": 400,
-    "top_padding_pt": 40
+  "page_size_pt": 576,
+  "age_buckets": {
+    "young": {
+      "ages": ["4", "5", "6"],
+      "font_size_pt": 24,
+      "leading_pt": 30,
+      "band_height_pt": 230
+    },
+    "middle": {
+      "ages": ["7", "8", "9"],
+      "font_size_pt": 19,
+      "leading_pt": 25,
+      "band_height_pt": 230
+    },
+    "older": {
+      "ages": ["10", "11", "12"],
+      "font_size_pt": 16,
+      "leading_pt": 21,
+      "band_height_pt": 220
+    }
   },
-  "text": {
-    "font_name": "Helvetica",
-    "font_size_pt": 12,
-    "leading_pt": 16,
-    "top_padding_pt": 20
+  "text_band": {
+    "background_color": "#faf6f0",
+    "background_opacity": 0.5,
+    "text_color": "#2b2320",
+    "font_name": "Times-Italic",
+    "horizontal_padding_pt": 36,
+    "vertical_padding_pt": 18
+  },
+  "cover": {
+    "background_color": "#faf6f0",
+    "title_font_name": "Times-BoldItalic",
+    "title_font_size_pt": 54,
+    "subtitle_font_name": "Times-Italic",
+    "subtitle_font_size_pt": 22,
+    "subtitle_color": "#7a6a5e",
+    "title_color": "#2b2320",
+    "image_wash_opacity": 0.3
   }
 }
