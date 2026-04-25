@@ -1,3 +1,7 @@
 {image_prompt}
 
-Art style: soft watercolor storybook illustration with gentle digital gouache shading, warm natural lighting, 1:1 square composition. The image features a {hero} in a {theme} setting. NO text, captions, logos, speech bubbles, or written words anywhere in the image. Family-friendly, whimsical, never scary.
+A single cinematic children's book illustration filling the entire frame edge to edge — full bleed, no border, no frame, no torn paper, no arch, no decorative side panels. Single complete scene only.
+
+ABSOLUTELY NO paint pots, NO brushes, NO color swatches, NO color discs, NO color chips, NO color squares around the edges, NO art supplies, NO design tools, NO palette grids. The scene must contain ONLY the story content — never the materials used to make it.
+
+Soft painted illustration with gentle digital gouache shading. Warm muted earthy storybook tones — soft cream, peach, sage green, dusty blue. Gentle natural lighting. The image features a {hero} in a {theme} setting; the hero must look recognizably the same character across all pages of this book. NO text, captions, logos, speech bubbles, or written words anywhere. Family-friendly, whimsical, never scary.

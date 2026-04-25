@@ -58,29 +58,28 @@ class TestOpenAIImageAdapter:
         adapter.generate("my prompt")
 
         client.images.generate.assert_called_once_with(
-            model="dall-e-3",
+            model="gpt-image-1",
             prompt="my prompt",
             size="1024x1024",
-            quality="standard",
+            quality="medium",
             n=1,
-            response_format="b64_json",
         )
 
     def test_custom_model_size_quality_are_used(self):
         client, _ = self._make_stub_client()
         adapter = OpenAIImageAdapter(
             client=client,
-            model="dall-e-2",
-            size="512x512",
-            quality="hd",
+            model="gpt-image-1",
+            size="1536x1024",
+            quality="high",
         )
 
         adapter.generate("hi")
 
         call_kwargs = client.images.generate.call_args.kwargs
-        assert call_kwargs["model"] == "dall-e-2"
-        assert call_kwargs["size"] == "512x512"
-        assert call_kwargs["quality"] == "hd"
+        assert call_kwargs["model"] == "gpt-image-1"
+        assert call_kwargs["size"] == "1536x1024"
+        assert call_kwargs["quality"] == "high"
 
     def test_is_instance_of_imageadapter(self):
         client, _ = self._make_stub_client()

@@ -81,10 +81,30 @@ def _get_ddb_updater():
 
 
 def lambda_handler(event, context):
+    # Fetch the theme card image as cover background — silent fallback to
+    # plain cream cover if the bucket read fails for any reason.
+    cover_bytes = b""
+    theme = event.get("theme", "")
+    if theme:
+        try:
+            import boto3
+            s3 = boto3.client("s3")
+            resp = s3.get_object(
+                Bucket="my-story-cards-691304835962",
+                Key=f"cards/theme/{theme}.png",
+            )
+            cover_bytes = resp["Body"].read()
+        except Exception:
+            cover_bytes = b""
+
     pdf_key = assemble_pdf(
         story_id=event["story_id"],
         pages=event["pages"],
         image_s3_keys=event["image_s3_keys"],
+        age=event["age"],
+        name=event.get("name", ""),
+        theme=theme,
+        cover_image_bytes=cover_bytes,
         s3_downloader=_get_s3_downloader(),
         s3_uploader=_get_s3_uploader(),
         ddb_updater=_get_ddb_updater(),

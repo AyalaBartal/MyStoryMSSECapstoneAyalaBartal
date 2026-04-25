@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { CARDS } from "./cardsConfig";
 import "./App.css";
+import loadingAnim from "./loading.webp";
+import readyImage from "./ready.png";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL;
 const POLL_INTERVAL_MS = 3000;
-const POLL_TIMEOUT_MS = 120_000;
+const POLL_TIMEOUT_MS = 180_000;
 const NAME_MAX_LENGTH = 30;
 const AGE_OPTIONS = ["4", "5", "6", "7", "8", "9", "10", "11", "12"];
 
@@ -112,9 +114,14 @@ export default function App() {
       <main className="app">
         <h1>📖 My Story</h1>
         <div className="status-card">
-          <div className="spinner" />
-          <p>Writing {trimmedName}'s story…</p>
-          <p className="muted">This takes about a minute.</p>
+          <figure className="polaroid">
+            <span className="polaroid-tape" aria-hidden="true" />
+            <img src={loadingAnim} alt="Writing your story…" className="polaroid-photo" />
+            <figcaption className="polaroid-caption">
+              Writing {trimmedName}'s story…
+            </figcaption>
+          </figure>
+          <p className="muted">This takes about 5 minutes.</p>
         </div>
       </main>
     );
@@ -125,14 +132,22 @@ export default function App() {
       <main className="app">
         <h1>📖 My Story</h1>
         <div className="status-card">
-          <p className="big-emoji">🎉</p>
-          <p>{trimmedName}'s story is ready!</p>
-          <a className="primary-btn" href={downloadUrl} target="_blank" rel="noreferrer">
-            📄 Open the book
-          </a>
-          <button className="secondary-btn" onClick={reset}>
-            Make another
-          </button>
+          <figure className="polaroid">
+            <span className="polaroid-tape" aria-hidden="true" />
+            <img src={readyImage} alt="Your story is ready" className="polaroid-photo" />
+            <figcaption className="polaroid-caption">
+              {trimmedName}'s story is ready!
+            </figcaption>
+          </figure>
+          <p className="muted">Open it and start reading…</p>
+          <div className="action-row">
+            <a className="primary-btn" href={downloadUrl} target="_blank" rel="noreferrer">
+              📖 Open the book
+            </a>
+            <button className="secondary-btn" onClick={reset}>
+              Make another
+            </button>
+          </div>
         </div>
       </main>
     );
