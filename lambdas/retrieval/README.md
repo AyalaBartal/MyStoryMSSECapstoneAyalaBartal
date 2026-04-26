@@ -1,7 +1,6 @@
 # Retrieval Lambda
 
-Returns the current state of a story — either "still processing" or a
-pre-signed S3 URL for the finished PDF.
+Returns the current state of a story — either "still processing", "failed", or a pre-signed S3 URL for the finished PDF. The frontend polls this endpoint every 3 seconds while a story generates.
 
 ## HTTP contract
 
@@ -40,16 +39,16 @@ Wired in `infra/stacks/api_stack.py`:
 ## File layout
 ```
 retrieval/
-    ├── init.py
-    ├── handler.py        # AWS entry point — thin, parses events and maps exceptions to HTTP
-    ├── service.py        # pure business logic — testable without AWS event shapes
-    ├── utils.py          # inline helpers (CORS responses, logger) — NOT shared, see lambdas/README.md
-    ├── requirements.txt  # runtime deps bundled into the deployment zip (just boto3)
+    ├── __init__.py
+    ├── handler.py         # AWS entry point — thin, parses events and maps exceptions to HTTP
+    ├── service.py         # pure business logic — testable without AWS event shapes
+    ├── utils.py           # inline helpers (CORS responses, logger) — NOT shared, see lambdas/README.md
+    ├── requirements.txt   # runtime deps bundled into the deployment zip (just boto3)
     └── tests/
-            ├── init.py
+            ├── __init__.py
             ├── conftest.py       # sys.path + env vars + moto fixture
-            ├── test_service.py   # 15 tests — exercise service against moto
-            └── test_handler.py   # 11 tests — exercise handler with service mocked out
+            ├── test_service.py   # exercises service against moto
+            └── test_handler.py   # exercises handler with service mocked out
 ```
 
 ## Running the tests
@@ -68,6 +67,4 @@ pytest lambdas/retrieval/tests/ --cov=lambdas/retrieval --cov-report=term-missin
 
 ## How it handles data integrity
 
-If a DynamoDB item has `status="COMPLETE"` but no `pdf_s3_key`, the service raises `RuntimeError`. 
-This indicates an upstream pipeline bug (the PDF assembly Lambda was supposed to write that key). The handler maps it to a 500 response and logs the full error via `logger.exception`, so CloudWatch surfaces it but the client only sees a generic message.
-
+If a DynamoDB item has `status="COMPLETE"` but no `pdf_s3_key`, the service raises `RuntimeError`. This indicates an upstream pipeline bug (the PDF assembly Lambda was supposed to write that key). The handler maps it to a 500 response and logs the full error via `logger.exception`, so CloudWatch surfaces it but the client only sees a generic message.

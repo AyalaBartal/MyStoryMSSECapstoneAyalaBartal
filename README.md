@@ -1,7 +1,7 @@
 # My Story 📖
 > AI-Powered Personalized Children's Story Generator
 
-An AWS serverless application that lets children (ages 5–8) select story cards and receive a unique, personalized storybook — complete with AI-generated illustrations — delivered as a downloadable PDF.
+An AWS serverless application that lets children (ages 4–12) enter their name, pick their age, and select story cards to receive a unique, personalized 5-page picture book — complete with AI-generated watercolor illustrations and a custom cover — delivered as a downloadable square 8×8 inch PDF.
 
 Built as part of the **MSSE Capstone Project** at Quantic School of Business and Technology.
 
@@ -9,15 +9,19 @@ Built as part of the **MSSE Capstone Project** at Quantic School of Business and
 
 ## 🌟 What It Does
 
-Children select 4 cards:
+Children enter their name, pick their age, and select 3 story cards:
+
 - **Hero** — Boy or Girl
 - **Adventure Theme** — Space, Under the Sea, Medieval Fantasy, or Dinosaurs
-- **adventure** — Surprise Asteroid, Evil Wizard/Witch, Dragon, or Volcano Eruption
-- **Secret Strength** — Super Strong, Friendship, Super Smart, or Super Speed
+- **Adventure** — Secret Map, Talking Animal, Time Machine, or Magic Key
 
-The app generates a unique **7-page personalized storybook** following a proven 5-beat narrative structure, illustrated with AI-generated artwork, and delivered as a downloadable PDF.
+The app generates a unique **5-page personalized picture book** with:
+- A custom cover page using the chosen theme illustration as a full-bleed background
+- 5 story pages with full-bleed AI-generated watercolor illustrations
+- Story text overlaid in a soft cream band, in age-appropriate prose
+- Consistent character + setting across all pages (verbatim-repeated description in each page's image prompt)
 
-**128 possible unique story combinations.**
+**288 possible unique story-shape combinations** (2 heroes × 4 themes × 4 adventures × 9 ages), plus open-ended creative variation through the child's name and the LLM's generation.
 
 ---
 
@@ -26,20 +30,23 @@ The app generates a unique **7-page personalized storybook** following a proven 
 Fully serverless on AWS, built and deployed with AWS CDK (Python).
 
 ```
-Frontend (S3 Static)
+Frontend (React + Vite, S3 Static)
         ↓
    API Gateway
         ↓
-  Entry Lambda
+  Entry Lambda  → schema-driven validation → DynamoDB (status: PROCESSING)
         ↓
 Step Functions Pipeline
-   ├── Story Generation Lambda → HuggingFace Inference Endpoint (Fine-tuned LLaMA 3 8B)
-   ├── Image Generation Lambda → Replicate API (Fine-tuned Stable Diffusion)
+   ├── Story Generation Lambda → Anthropic Claude Haiku
+   │     (one structured JSON response with text + image_prompt per page)
+   ├── Image Generation Lambda → OpenAI gpt-image-1
+   │     (5 illustrations × 1024×1024 watercolor)
    └── PDF Assembly Lambda → ReportLab
+         (square 8×8 picture book + cover page)
         ↓
-  Save to S3 + DynamoDB
+  Save to S3 + DynamoDB (status: COMPLETE)
         ↓
-  Retrieval Lambda
+  Retrieval Lambda → Pre-signed S3 URL
         ↓
   PDF Download
 ```
@@ -47,114 +54,121 @@ Step Functions Pipeline
 ### AWS Services
 | Service | Purpose |
 |---------|---------|
-| S3 | Frontend hosting, PDF storage, illustration storage |
-| API Gateway | REST API endpoints |
-| Lambda (x5) | Business logic — independent functions |
-| Step Functions | Pipeline orchestration |
-| DynamoDB | Story metadata |
-| CloudWatch | Logging and cost alerts |
-| CDK | Infrastructure as Code |
+| S3 (×4 buckets) | Frontend hosting, PDF storage, illustration storage, card images |
+| API Gateway | REST API endpoints (`POST /generate`, `GET /story/{id}`) |
+| Lambda (×5) | Independent business logic functions (entry, story, image, pdf, retrieval) |
+| Step Functions | Pipeline orchestration with centralized failure handling |
+| DynamoDB | Story metadata with 30-day TTL |
+| Secrets Manager | Anthropic + OpenAI API keys |
+| CloudWatch | Logging, metrics, error visibility |
+| CDK | Infrastructure as Code (Python) |
 
-### ML Model Hosting
-| Model | Hosting | Purpose |
-|-------|---------|---------|
-| Fine-tuned LLaMA 3 8B | HuggingFace Inference Endpoints | Story text generation |
-| Fine-tuned Stable Diffusion 1.5 | Replicate | Story illustrations |
+### AI Providers
+| Service | Purpose |
+|---------|---------|
+| Anthropic Claude Haiku | Story text generation + sanitized image prompts |
+| OpenAI gpt-image-1 (gpt-4o image generation) | Page illustrations in watercolor style |
+
+V1 uses foundation models via API. The hexagonal/ports-and-adapters architecture is designed to allow Phase 2 swap to custom-trained LoRAs (proprietary visual style + brand voice) without rewriting any business logic — see `DESIGN_AND_TESTING.md` Section 10 for the V2 roadmap.
 
 ---
 
 ## 📁 Repository Structure
 
 ```
-my-story/
+MyStoryMSSECapstoneAyalaBartal/
 ├── infra/                          # AWS CDK app (Python)
 │   ├── app.py                      # CDK entry point
-│   ├── stacks/
-│   │   ├── storage_stack.py        # S3 + DynamoDB
-│   │   ├── api_stack.py            # API Gateway
-│   │   ├── pipeline_stack.py       # Step Functions + Lambdas
-│   │   └── cicd_stack.py           # CI/CD
-│   └── requirements.txt
+│   └── stacks/
+│       ├── storage_stack.py        # 4 S3 buckets + DynamoDB
+│       ├── api_stack.py            # API Gateway + Entry/Retrieval Lambdas
+│       ├── pipeline_stack.py       # Story/Image/PDF Lambdas + Step Fns + Secrets
+│       └── cicd_stack.py           # (placeholder for self-hosted CI/CD)
 │
 ├── lambdas/
-│   ├── entry/                      # Receives card selections, starts pipeline
-│   │   ├── handler.py
-│   │   ├── requirements.txt
-│   │   └── tests/
-│   ├── story_generation/           # Calls HuggingFace LLM endpoint
-│   │   ├── handler.py
-│   │   ├── requirements.txt
-│   │   └── tests/
-│   ├── image_generation/           # Calls Replicate image API
-│   │   ├── handler.py
-│   │   ├── requirements.txt
-│   │   └── tests/
-│   ├── pdf_assembly/               # Builds PDF with ReportLab
-│   │   ├── handler.py
-│   │   ├── requirements.txt
-│   │   └── tests/
-│   └── retrieval/                  # Returns pre-signed S3 URL
-│       ├── handler.py
-│       ├── requirements.txt
-│       └── tests/
+│   ├── entry/                      # Schema-driven input validation
+│   ├── story_generation/           # Anthropic Claude Haiku adapter
+│   ├── image_generation/           # OpenAI gpt-image-1 adapter
+│   ├── pdf_assembly/               # ReportLab picture-book composition
+│   └── retrieval/                  # Pre-signed S3 URL for PDF download
+│   (each contains: handler.py, service.py, adapters.py, requirements.txt, tests/)
 │
-├── frontend/                       # Static card selection UI
+├── frontend/                       # React + Vite SPA
+│   ├── package.json
+│   ├── vite.config.js
 │   ├── index.html
-│   ├── styles.css
-│   └── app.js
+│   └── src/
+│       ├── App.jsx                 # Card picker + polaroid loader/complete UI
+│       ├── App.css
+│       ├── cardsConfig.jsx         # Card definitions
+│       ├── loading.webp            # Polaroid loading animation
+│       ├── ready.png               # Polaroid completion image
+│       └── assets/cards/           # Card illustration assets
 │
-├── ml/                             # Model training (local only, not deployed)
-│   ├── llm/
-│   │   ├── train.py
-│   │   ├── evaluate.py
-│   │   └── requirements.txt
-│   └── image_model/
-│       ├── train.py
-│       ├── evaluate.py
-│       └── requirements.txt
+├── scripts/
+│   ├── package_lambdas.sh          # Build Lambda zips for cdk deploy
+│   ├── generate_card_images.py     # One-off card image generator
+│   └── smoke_test_*.py             # End-to-end Lambda smoke tests
 │
-├── .github/
-│   └── workflows/
-│       └── deploy.yml              # CI/CD pipeline
+├── ml/                             # Phase 2 — placeholder for LoRA training code
 │
-└── README.md
+├── .github/workflows/
+│   └── deploy.yml                  # CI/CD pipeline
+│
+├── DESIGN_AND_TESTING.md           # Full architecture + testing strategy doc
+├── WORK_LOG.md                     # Sprint diary
+├── COSTS.md                        # Cost tracking
+└── README.md                       # This file
 ```
 
 ---
 
 ## 🚀 Live Demo
 
-> 🔗 [Deployed Application](#) *(link added after Sprint 3 deployment)*
+🔗 **Deployed application:** http://my-story-frontend-691304835962.s3-website-us-east-1.amazonaws.com
+
+> Note: V1 deployment uses HTTP via S3 static website hosting. HTTPS via CloudFront is documented as Phase 2 work.
 
 ---
 
 ## 📋 Task Board
 
-> 🔗 [Trello Scrum Board](https://trello.com/b/nrrHEuFv/my-story-msse-capstone) 
+🔗 **Trello Scrum Board:** https://trello.com/b/nrrHEuFv/my-story-msse-capstone
 
 ---
 
-## 📄 Design & Architecture Document
+## 📄 Design & Testing Document
 
-> 🔗 [Design Document](#) *(link added after document is finalized)*
+🔗 [`DESIGN_AND_TESTING.md`](./DESIGN_AND_TESTING.md) — full architecture decisions, design patterns, testing strategy, deployment cost analysis, risks, and Phase 2 continuation roadmap.
 
 ---
 
-## 🤖 ML Models
+## 🤖 AI Stack
 
-### Story Generation
-- **Base model:** LLaMA 3 8B (Meta)
-- **Fine-tuning:** LoRA via HuggingFace PEFT
-- **Training data:** Brothers Grimm + Children's Book Test dataset
-- **Training environment:** Apple M5 MacBook Air (Apple MLX framework)
-- **Production:** HuggingFace Inference Endpoint
+### V1 (current — foundation models with prompt engineering)
 
-### Illustration Generation
-- **Base model:** Stable Diffusion 1.5
-- **Fine-tuning:** LoRA / DreamBooth
-- **Training data:** Curated children's book illustration dataset
-- **Training environment:** Apple M5 MacBook Air (PyTorch MPS backend)
-- **Production:** Replicate
+- **Story text:** Anthropic Claude Haiku
+  - Two-stage structured JSON output: text + sanitized image_prompt per page in a single response
+  - Age-aware vocabulary calibration (4-12 year-olds)
+  - Verbatim-repeated character + world descriptions across all 5 pages for visual consistency
+- **Illustrations:** OpenAI `gpt-image-1` (gpt-4o image generation)
+  - 1024×1024 medium quality
+  - Watercolor children's-book aesthetic
+  - Replaces DALL-E 3 from earlier in the project — gpt-image-1 has materially better character consistency and spatial composition adherence
+- **PDF assembly:** ReportLab
+  - Square 8×8 inch (576×576pt) picture-book pages
+  - Custom cover page with theme card image background + italic Times typography
+  - Full-bleed illustrations + semi-transparent cream text overlay band
+  - Age-tiered font sizing
+  - `KeepInFrame` overflow protection so text never silently disappears
+
+### V2 (Phase 2 roadmap — see `DESIGN_AND_TESTING.md` Section 10)
+
+- **Style LoRA** trained on commissioned designer portfolio (proprietary visual brand)
+- **Voice fine-tune** of GPT-4o-mini on a custom story corpus (proprietary editorial voice)
+- **Per-child Character LoRA** pipeline (kid uploads photos → trained LoRA in 15 min → kid is the visual hero)
+- Inference hosted on Modal Labs serverless GPU (replaces foundation API calls)
+- Hexagonal architecture means each swap is a single-class change — no business logic, no orchestration, no Lambda config changes
 
 ---
 
@@ -162,7 +176,7 @@ my-story/
 
 ### Prerequisites
 - Python 3.11+ (Lambdas run on Python 3.11 in AWS — match the runtime locally)
-- Node.js 18+ (only needed if you want to run `cdk deploy` from your laptop)
+- Node.js 18+ (for Vite frontend dev + CDK)
 - AWS CLI configured (only needed for deploying from your laptop)
 - Homebrew (macOS): `brew install python@3.11 node` gets you the first two
 
@@ -189,8 +203,6 @@ The `.venv/` directory is gitignored and will not be committed.
 
 ### 2. Install dev dependencies
 
-`requirements-dev.txt` contains only what you need to write and test code locally (pytest, moto, boto3, responses). It does **not** install the Lambda deployment dependencies — those get bundled into each Lambda zip at deploy time by GitHub Actions, not installed on your laptop.
-
 ```bash
 pip install --upgrade pip
 pip install -r requirements-dev.txt
@@ -208,61 +220,74 @@ python -c "import pytest, moto, boto3; print('OK')"
 pytest lambdas/ -v
 ```
 
-### 4. (Optional) Install CDK tooling for deployment from your laptop
+You should see 120+ tests pass in under 5 seconds.
+
+### 4. Run the frontend locally
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+The dev server runs on http://localhost:5173. You'll need a `.env.local` with `VITE_API_BASE_URL` pointing at your deployed (or local) API endpoint.
+
+### 5. Deploy from your laptop (optional)
 
 The GitHub Actions workflow deploys automatically on push to `main`, so this is only needed if you want to deploy manually.
 
 ```bash
-npm install -g aws-cdk                   # CDK CLI (one-time, global)
-pip install -r infra/requirements.txt    # CDK Python libraries (into .venv)
+# One-time CDK setup
+npm install -g aws-cdk
+pip install -r infra/requirements.txt
+
+# Build Lambda zips (CRITICAL — must run before every cdk deploy)
+./scripts/package_lambdas.sh
+
+# Deploy (one-time bootstrap, then deploy)
 cd infra
 cdk bootstrap                            # one-time per AWS account + region
 cdk deploy --all
 ```
 
-### 5. About the per-Lambda `requirements.txt` files
+**Important:** Always run `./scripts/package_lambdas.sh` before `cdk deploy --all`. CDK reads pre-built zips from `infra/lambda_packages/` — if you skip the package step, CDK redeploys the previous build of your Lambda code.
 
-Each Lambda keeps its **own** `requirements.txt` on purpose. This is a deliberate architectural choice that preserves the ability to split any Lambda into its own standalone service (own repo, own deploy pipeline, own runtime) in the future without rewriting dependency management.
+### 6. Per-Lambda `requirements.txt` files
+
+Each Lambda keeps its **own** `requirements.txt`. This is a deliberate architectural choice that preserves the ability to split any Lambda into its own standalone service in the future without rewriting dependency management.
 
 ```
-lambdas/entry/requirements.txt            → only what entry/handler.py imports
-lambdas/story_generation/requirements.txt → only what story_generation imports
-lambdas/image_generation/requirements.txt → only what image_generation imports
-lambdas/pdf_assembly/requirements.txt     → only what pdf_assembly imports (reportlab, pillow)
-lambdas/retrieval/requirements.txt        → only what retrieval/handler.py imports
+lambdas/entry/requirements.txt              → boto3 only
+lambdas/story_generation/requirements.txt   → anthropic + boto3
+lambdas/image_generation/requirements.txt   → openai + boto3
+lambdas/pdf_assembly/requirements.txt       → reportlab + pillow + boto3
+lambdas/retrieval/requirements.txt          → boto3 only
 ```
 
-The GitHub Actions workflow (`.github/workflows/deploy.yml`) reads each file independently and bundles *only* that Lambda's declared dependencies into its zip. This keeps each Lambda's deployment artifact small and its dependency surface narrow.
-
-**When to touch these files:**
-- Add a package only to the specific Lambda that imports it
-- Never put dev/test tooling (pytest, moto) in a Lambda's requirements — those live in `requirements-dev.txt`
-
-**Running tests that exercise a specific Lambda's runtime deps:**
-Our unit tests mock external I/O (HTTP, AWS) via `moto` and `responses`, so you generally don't need to install a Lambda's own `requirements.txt` on your laptop. If you ever do need to (e.g. running a Lambda handler interactively with `reportlab`), install it *ad hoc* inside your `.venv`:
-
-```bash
-# Example — temporary, for interactive debugging of pdf_assembly
-pip install -r lambdas/pdf_assembly/requirements.txt
-```
-
-That's fine inside the venv, because the venv is isolated from your system Python.
+The packaging script (`scripts/package_lambdas.sh`) reads each file independently and bundles only that Lambda's declared dependencies into its zip. Keeps each Lambda's deployment artifact small and its dependency surface narrow.
 
 ---
 
 ## 🧪 Testing
 
-Each Lambda has its own test suite in its `tests/` folder.
+Each Lambda has its own test suite in its `tests/` folder. All tests use mock adapters and stubbed S3/DDB callables — **no test ever hits real AWS or external APIs**.
 
 ```bash
-pytest lambdas/entry/tests/
-pytest lambdas/story_generation/tests/
-pytest lambdas/image_generation/tests/
-pytest lambdas/pdf_assembly/tests/
-pytest lambdas/retrieval/tests/
+pytest lambdas/entry/tests/             # Schema validation, handler, service
+pytest lambdas/story_generation/tests/  # Anthropic adapter, mock, service
+pytest lambdas/image_generation/tests/  # OpenAI adapter, mock, service
+pytest lambdas/pdf_assembly/tests/      # ReportLab composition, layout, handler
+pytest lambdas/retrieval/tests/         # Pre-signed URL gen, handler
+```
+
+Or run everything:
+```bash
+pytest
 ```
 
 CI runs automatically on every push to `main` and all pull requests via GitHub Actions.
+
+See `DESIGN_AND_TESTING.md` Section 8 for the full testing strategy.
 
 ---
 
@@ -270,15 +295,15 @@ CI runs automatically on every push to `main` and all pull requests via GitHub A
 
 | Sprint | Duration | Focus |
 |--------|----------|-------|
-| Sprint 1 | Weeks 1–2 | Planning, setup, architecture, CDK bootstrap |
-| Sprint 2 | Weeks 3–5 | Core app + LLM fine-tuning |
-| Sprint 3 | Weeks 6–8 | Image model + PDF + deployment |
+| Sprint 1 | Weeks 1–3 | Planning, architecture, CDK bootstrap, schema design, Entry Lambda |
+| Sprint 2 | Weeks 4–6 | Story + Image + PDF Lambdas with foundation models, hexagonal pattern |
+| Sprint 3 | Weeks 7–10 | Frontend, picture-book PDF format, gpt-image-1 swap, polish, demo prep |
 
 ---
 
 ## 👩‍💻 Author
 
-**Ayala** — MSSE Candidate, Quantic School of Business and Technology
+**Ayala Bartal** — MSSE Candidate, Quantic School of Business and Technology
 
 ---
 
