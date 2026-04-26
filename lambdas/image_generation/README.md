@@ -1,6 +1,6 @@
 # image_generation Lambda
 
-Third stage of the pipeline. Takes the 5 story pages, generates an illustration per page, uploads them to S3, returns the S3 keys.
+Third stage of the pipeline. Takes the 5 story pages (each with an `image_prompt`), generates an illustration per page via OpenAI `gpt-image-1`, uploads them to S3, returns the S3 keys.
 
 ## Contract
 
@@ -8,14 +8,19 @@ Third stage of the pipeline. Takes the 5 story pages, generates an illustration 
 ```json
 {
   "story_id": "uuid-string",
-  "hero": "girl",
-  "theme": "space",
-  "adventure": "asteroid",
-  "strength": "super_smart",
+  "name":     "Ayala",
+  "age":      "9",
+  "hero":     "girl",
+  "theme":    "space",
+  "adventure": "secret_map",
   "pages": [
-    {"page_num": 1, "text": "..."},
+    {
+      "page_num": 1,
+      "text": "...",
+      "image_prompt": "Visual description for the image generator..."
+    },
     ...
-    {"page_num": 5, "text": "..."}
+    {"page_num": 5, "text": "...", "image_prompt": "..."}
   ]
 }
 ```
@@ -38,24 +43,32 @@ Third stage of the pipeline. Takes the 5 story pages, generates an illustration 
 
 Hexagonal / ports-and-adapters:
 
-- `handler.py` — Step Functions wrapper; builds real S3 client + image adapter
-- `service.py` — pure logic: for each page, build prompt → call adapter → upload bytes to S3 → collect keys
+- `handler.py` — Step Functions wrapper; builds real S3 client + OpenAI client + image adapter
+- `service.py` — pure logic: for each page, take its `image_prompt` → call adapter → upload bytes to S3 → collect keys
 - `adapters.py` — `ImageAdapter` ABC + `MockImageAdapter` (tests) + `OpenAIImageAdapter` (prod)
-- `prompt_style.txt` — illustration style guide, editable without code change
+- `prompt_style.txt` — extra style guidance (mostly redundant now since the story prompt template handles style; kept for backward compatibility)
 
 S3 uploader is injected into the service as a plain callable `(key, body, content_type) -> None`, so tests never touch real S3.
 
-## Image provider: OpenAI DALL-E 3
+## Image provider: OpenAI gpt-image-1 (gpt-4o image generation)
 
-Chosen for: best-in-class quality for children's book illustrations, simple API, predictable cost (~$0.04 per 1024x1024 image → ~$0.20 per story).
+Chosen for:
+- Better character consistency across multi-page generation than DALL-E 3
+- Better spatial-composition adherence (responds to "leave the bottom 35% calm" prompts)
+- Watercolor + style-prompt fidelity
+- Cheaper than DALL-E 3 HD at medium quality (~$0.042 per 1024×1024 image)
+- Same OpenAI client SDK already used in the project
 
-Swap providers by adding a new class to `adapters.py` that implements `ImageAdapter.generate()` and updating `handler.py`. A locally-trained SD 1.5 LoRA is the post-capstone training-track goal.
+Cost: ~$0.21 per story (5 images × $0.042).
+
+Swap providers by adding a new class to `adapters.py` that implements `ImageAdapter.generate()` and updating `handler.py`. The hexagonal pattern is what made the mid-project DALL-E 3 → gpt-image-1 swap a single-class change.
 
 ## Env vars (production)
 
-- `OPENAI_API_KEY` — required; injected via CDK from AWS Secrets Manager in production.
-- `PDFS_BUCKET` — already set per the existing Lambdas.
+- `OPENAI_SECRET_ARN` — required; ARN of the Secrets Manager secret holding the OpenAI API key. Fetched at cold start, never logged.
+- `IMAGES_BUCKET` — required; S3 bucket name where generated illustrations are uploaded.
+- `LOG_LEVEL` — optional. Defaults to `INFO`.
 
 ## Tests
 
-`pytest lambdas/image_generation/tests/ -v` — all tests use `MockImageAdapter` and a stubbed S3 uploader. Zero network, zero AWS.
+`pytest lambdas/image_generation/tests/ -v` — all tests use `MockImageAdapter` (returns canned PNG bytes) and a stubbed S3 uploader. Zero network, zero AWS.
