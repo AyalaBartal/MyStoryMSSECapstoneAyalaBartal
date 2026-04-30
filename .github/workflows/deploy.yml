@@ -122,6 +122,25 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Build frontend
+        env:
+          VITE_API_BASE_URL: https://d2633mrual.execute-api.us-east-1.amazonaws.com/prod
+        run: |
+          cd frontend
+          npm run build
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -131,7 +150,7 @@ jobs:
 
       - name: Deploy frontend to S3
         run: |
-          aws s3 sync frontend/ s3://${{ secrets.FRONTEND_BUCKET_NAME }} \
+          aws s3 sync frontend/dist/ s3://${{ secrets.FRONTEND_BUCKET_NAME }}/ \
             --delete \
             --cache-control "max-age=86400"
 
