@@ -103,6 +103,13 @@ Square 8×8 inch pages, modeled on real children's picture books:
 - `PDFS_BUCKET` — S3 bucket where the final PDF is uploaded.
 - `LOG_LEVEL` — optional. Defaults to `INFO`.
 
+## IAM permissions required
+
+Wired in `infra/stacks/pipeline_stack.py`:
+- `s3:GetObject` on the images bucket (`grant_read`).
+- `s3:PutObject` on the pdfs bucket (`grant_write`).
+- `dynamodb:UpdateItem` on the stories table (`grant_write_data`).
+
 ## Tests
 
 `pytest lambdas/pdf_assembly/tests/ -v` — all tests use stub callables and a tiny canned PNG. Zero network, zero AWS.

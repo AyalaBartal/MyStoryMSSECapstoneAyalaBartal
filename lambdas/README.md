@@ -11,8 +11,7 @@ No `_shared/` module. No cross-Lambda imports. Helpers like CORS response envelo
 **When we'd reconsider:** if shared boilerplate grows past ~200 lines, the cost calculation flips. At that point the answer is a **proper versioned internal package** published to an internal PyPI (or CodeArtifact), not a folder import — because a published package maintains the extractability guarantee in a way a folder import can't.
 
 ## Standard structure
-```
-Lambdas/<name>/ 
+Lambdas/<name>/
     ├── init.py
     ├── handler.py        # AWS entry point — thin, ≤ ~50 lines ideal
     ├── service.py        # pure business logic, AWS-event-shape-free
@@ -24,7 +23,6 @@ Lambdas/<name>/
         ├── conftest.py       # sys.path + env vars + moto fixture(s)
         ├── test_handler.py   # event parsing + exception-to-HTTP mapping
         └── test_service.py   # business logic against moto
-```
 
 ## What each file is for
 
@@ -50,7 +48,7 @@ Takes plain Python arguments (e.g. `story_id: str`, a boto3 table, a boto3 clien
 
 This is the file that gets ~90% of the tests. It can be unit-tested with moto without ever constructing a fake API Gateway event.
 
-This is also the file that changes when we swap mocks for real ML models later: the function signature stays the same, the internals change. Handler code never knows.
+This is also the file that changes when we swap one provider implementation for another: the function signature stays the same, the internals change. Handler code never knows. The story_generation Lambda uses this pattern with AWS Bedrock; the image_generation Lambda uses it with OpenAI.
 
 ### `utils.py` — inline helpers (NOT shared)
 

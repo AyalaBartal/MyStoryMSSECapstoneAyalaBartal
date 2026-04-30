@@ -1,8 +1,9 @@
-"""Unit tests for the story_generation Lambda handler.
+"""Tests for the story_generation Lambda handler.
 
-Tests never hit the real Anthropic API — the autouse `stub_adapter`
-fixture monkeypatches _get_adapter() to return a MockLLMAdapter, so
-every test runs offline and deterministic.
+The handler is thin — it builds the adapter, calls service.generate_story,
+saves the pages to DynamoDB, and returns the event plus the new pages key.
+These tests verify event passthrough, adapter injection, and DynamoDB write
+behaviour. Service-level logic is tested separately in test_service.py.
 """
 
 import pytest
@@ -11,72 +12,119 @@ import handler
 from adapters import MockLLMAdapter
 
 
-# Shape Step Functions passes to us (same as entry Lambda's output).
-SAMPLE_EVENT = {
-    "story_id": "01234567-89ab-4def-89ab-0123456789ab",
-    "name": "Maya",
-    "age": "9",
-    "hero": "girl",
-    "theme": "space",
-    "adventure": "secret_map",
-}
+class StubTable:
+    """Stand-in for a boto3 DynamoDB Table resource.
+
+    Records every update_item() call so tests can assert on what would
+    have been written to DynamoDB without hitting real AWS.
+    """
+
+    def __init__(self):
+        self.updates = []
+
+    def update_item(self, **kwargs):
+        self.updates.append(kwargs)
+        return {}
 
 
 @pytest.fixture(autouse=True)
-def stub_adapter(monkeypatch):
-    """Swap _get_adapter() for one returning a MockLLMAdapter.
+def stub_dependencies(monkeypatch):
+    """Replace the module-level adapter and table caches with stubs.
 
-    autouse=True so every test in this module is isolated from the
-    real Anthropic SDK. Also clears the module-level cache so test
-    order can't cause state leakage.
+    autouse=True so every test in this module is isolated from real
+    Bedrock and real DynamoDB. Without this, importing handler.py would
+    try to build a live boto3 client and eventually hit AWS.
     """
-    monkeypatch.setattr(handler, "_ADAPTER", None)
-    mock = MockLLMAdapter()
-    monkeypatch.setattr(handler, "_get_adapter", lambda: mock)
+    monkeypatch.setattr(handler, "_ADAPTER", MockLLMAdapter())
+    monkeypatch.setattr(handler, "_TABLE", StubTable())
+
+
+@pytest.fixture
+def valid_event():
+    return {
+        "story_id": "test-story-id",
+        "name": "Emma",
+        "hero": "girl",
+        "theme": "space",
+        "adventure": "secret_map",
+        "age": "7",
+    }
 
 
 class TestLambdaHandler:
-    def test_returns_event_plus_pages(self):
-        result = handler.lambda_handler(SAMPLE_EVENT, context=None)
-        assert result["story_id"] == SAMPLE_EVENT["story_id"]
+    def test_returns_event_plus_pages(self, valid_event):
+        result = handler.lambda_handler(valid_event, None)
+
+        # Original event fields are passed through
+        assert result["story_id"] == "test-story-id"
+        assert result["name"] == "Emma"
+
+        # New `pages` field is added
         assert "pages" in result
+        assert isinstance(result["pages"], list)
+
+    def test_input_fields_preserved(self, valid_event):
+        result = handler.lambda_handler(valid_event, None)
+
+        for field in ("story_id", "name", "hero", "theme", "adventure", "age"):
+            assert result[field] == valid_event[field]
+
+    def test_pages_have_expected_shape(self, valid_event):
+        result = handler.lambda_handler(valid_event, None)
+
         assert len(result["pages"]) == 5
-
-    def test_input_fields_preserved(self):
-        """All card selections pass through untouched — image_generation
-        needs them too."""
-        result = handler.lambda_handler(SAMPLE_EVENT, context=None)
-        for key in ("story_id", "name", "age", "hero", "theme", "adventure"):
-            assert result[key] == SAMPLE_EVENT[key]
-
-    def test_pages_have_expected_shape(self):
-        result = handler.lambda_handler(SAMPLE_EVENT, context=None)
         for page in result["pages"]:
-            assert "page_num" in page and "text" in page
-            assert isinstance(page["page_num"], int)
-            assert isinstance(page["text"], str)
+            assert "page_num" in page
+            assert "text" in page
+            assert "image_prompt" in page
 
-    def test_missing_required_field_raises(self):
-        """If entry Lambda's validation fails to catch something,
-        handler should fail loudly — no silent None values downstream."""
-        bad_event = {k: v for k, v in SAMPLE_EVENT.items() if k != "hero"}
+    def test_missing_required_field_raises(self, valid_event):
+        del valid_event["name"]
+
         with pytest.raises(KeyError):
-            handler.lambda_handler(bad_event, context=None)
+            handler.lambda_handler(valid_event, None)
 
-    def test_extra_event_fields_are_preserved(self):
-        """Step Functions / future metadata fields should pass through."""
-        event_with_extras = {**SAMPLE_EVENT, "execution_attempt": 1}
-        result = handler.lambda_handler(event_with_extras, context=None)
-        assert result["execution_attempt"] == 1
+    def test_extra_event_fields_are_preserved(self, valid_event):
+        valid_event["trace_id"] = "abc-123"
+        valid_event["debug_flag"] = True
 
-    def test_llm_failure_propagates(self, monkeypatch):
-        """Adapter errors bubble up so Step Functions can mark the
-        execution FAILED — swallowing would hide real production issues."""
+        result = handler.lambda_handler(valid_event, None)
+
+        assert result["trace_id"] == "abc-123"
+        assert result["debug_flag"] is True
+
+    def test_llm_failure_propagates(self, valid_event, monkeypatch):
+        """If the adapter raises, the handler doesn't swallow it.
+
+        Step Functions catches the exception and routes to the MarkFailed
+        state, which flips the DynamoDB row to FAILED.
+        """
+
         class FailingAdapter:
             def generate(self, prompt):
-                raise RuntimeError("LLM is down")
+                raise RuntimeError("LLM call failed")
 
-        monkeypatch.setattr(handler, "_get_adapter", lambda: FailingAdapter())
+        monkeypatch.setattr(handler, "_ADAPTER", FailingAdapter())
 
-        with pytest.raises(RuntimeError, match="LLM is down"):
-            handler.lambda_handler(SAMPLE_EVENT, context=None)
+        with pytest.raises(RuntimeError, match="LLM call failed"):
+            handler.lambda_handler(valid_event, None)
+
+    def test_pages_are_saved_to_dynamodb(self, valid_event):
+        """Verify the handler writes the generated pages to DynamoDB
+        and flips status to IMAGES_PENDING.
+        """
+        handler.lambda_handler(valid_event, None)
+
+        # Exactly one update_item call expected
+        assert len(handler._TABLE.updates) == 1
+        update = handler._TABLE.updates[0]
+
+        # Correct key
+        assert update["Key"] == {"story_id": "test-story-id"}
+
+        # Status flips to IMAGES_PENDING
+        assert update["ExpressionAttributeValues"][":status"] == "IMAGES_PENDING"
+
+        # Pages match what was returned
+        saved_pages = update["ExpressionAttributeValues"][":pages"]
+        assert len(saved_pages) == 5

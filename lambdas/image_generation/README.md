@@ -46,28 +46,33 @@ Hexagonal / ports-and-adapters:
 - `handler.py` — Step Functions wrapper; builds real S3 client + OpenAI client + image adapter
 - `service.py` — pure logic: for each page, take its `image_prompt` → call adapter → upload bytes to S3 → collect keys
 - `adapters.py` — `ImageAdapter` ABC + `MockImageAdapter` (tests) + `OpenAIImageAdapter` (prod)
-- `prompt_style.txt` — extra style guidance (mostly redundant now since the story prompt template handles style; kept for backward compatibility)
 
 S3 uploader is injected into the service as a plain callable `(key, body, content_type) -> None`, so tests never touch real S3.
 
-## Image provider: OpenAI gpt-image-1 (gpt-4o image generation)
+## Image provider: OpenAI gpt-image-1
 
 Chosen for:
-- Better character consistency across multi-page generation than DALL-E 3
-- Better spatial-composition adherence (responds to "leave the bottom 35% calm" prompts)
+- Strong character consistency across multi-page generation
+- Spatial-composition adherence (responds to "leave the bottom 35% calm" prompts)
 - Watercolor + style-prompt fidelity
-- Cheaper than DALL-E 3 HD at medium quality (~$0.042 per 1024×1024 image)
-- Same OpenAI client SDK already used in the project
+- ~$0.042 per 1024×1024 image at medium quality
+- OpenAI client SDK is straightforward to use from Lambda
 
 Cost: ~$0.21 per story (5 images × $0.042).
 
-Swap providers by adding a new class to `adapters.py` that implements `ImageAdapter.generate()` and updating `handler.py`. The hexagonal pattern is what made the mid-project DALL-E 3 → gpt-image-1 swap a single-class change.
+Swap providers by adding a new class to `adapters.py` that implements `ImageAdapter.generate()` and updating `handler.py`. The hexagonal pattern is what made the mid-project DALL-E 3 → gpt-image-1 swap a single-class change, and it's what lets us evaluate alternatives like Bedrock Stable Diffusion in future iterations without rewriting the pipeline.
 
 ## Env vars (production)
 
 - `OPENAI_SECRET_ARN` — required; ARN of the Secrets Manager secret holding the OpenAI API key. Fetched at cold start, never logged.
 - `IMAGES_BUCKET` — required; S3 bucket name where generated illustrations are uploaded.
 - `LOG_LEVEL` — optional. Defaults to `INFO`.
+
+## IAM permissions required
+
+Wired in `infra/stacks/pipeline_stack.py`:
+- `secretsmanager:GetSecretValue` on the OpenAI key secret (`grant_read`).
+- `s3:PutObject` on the images bucket (`grant_write`).
 
 ## Tests
 

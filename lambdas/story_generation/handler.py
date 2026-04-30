@@ -1,66 +1,72 @@
-"""AWS Lambda entrypoint for story_generation.
+"""AWS Lambda entry point for the story_generation Lambda.
 
-Invoked by Step Functions with the input:
-    {"story_id": "...", "hero": "...", "theme": "...",
-     "adventure": "...", "strength": "..."}
-
-Returns the input dict plus a "pages" array.
-
-Secrets:
-    ANTHROPIC_API_KEY is loaded from AWS Secrets Manager at cold start
-    if not already in the env. Local dev sets it via .env so the
-    Secrets Manager fetch is skipped. Production gets ANTHROPIC_SECRET_ARN
-    from CDK and fetches the actual key at first invocation.
+Receives card selections from Step Functions, calls the LLM via an adapter,
+returns the structured 5-page story. Thin — all business logic lives in
+service.py.
 """
 
 import os
+from typing import Optional
 
-from adapters import AnthropicLLMAdapter
+import boto3
+
+from adapters import LLMAdapter, BedrockLLMAdapter
 from service import generate_story
 
 
-_ADAPTER = None
+# Module-level cached adapter and table — created once on cold start, reused
+# on warm invocations. Tests override these by setting the module attributes
+# directly (handler._ADAPTER = MockLLMAdapter(); handler._TABLE = stub).
+_ADAPTER: Optional[LLMAdapter] = None
+_TABLE = None
+
+TABLE_NAME = os.environ["STORIES_TABLE"]
+MODEL_ID = os.environ.get(
+    "BEDROCK_MODEL_ID",
+    "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+)
 
 
-def _ensure_api_key_loaded():
-    """Fetch ANTHROPIC_API_KEY from Secrets Manager if not already in env.
+def _get_adapter() -> LLMAdapter:
+    """Return the cached adapter, creating one on first call.
 
-    Local dev: .env already provides ANTHROPIC_API_KEY — no-op.
-    Lambda:    CDK sets ANTHROPIC_SECRET_ARN. First call fetches the
-               value and stashes it in os.environ so anthropic.Anthropic()
-               can read it the standard way.
-
-    Deferred import of boto3 so local tests that never call this function
-    don't pay the import cost.
+    Tests stub this by setting handler._ADAPTER to a MockLLMAdapter directly.
     """
-    if "ANTHROPIC_API_KEY" in os.environ:
-        return
-    secret_arn = os.environ.get("ANTHROPIC_SECRET_ARN")
-    if not secret_arn:
-        raise RuntimeError(
-            "Neither ANTHROPIC_API_KEY nor ANTHROPIC_SECRET_ARN is set. "
-            "Local dev should have ANTHROPIC_API_KEY in .env; "
-            "production Lambda should have ANTHROPIC_SECRET_ARN from CDK."
-        )
-    import boto3
-    sm = boto3.client("secretsmanager")
-    response = sm.get_secret_value(SecretId=secret_arn)
-    os.environ["ANTHROPIC_API_KEY"] = response["SecretString"]
-
-
-def _get_adapter():
-    """Lazily build the LLM adapter on first call, cache for reuse."""
     global _ADAPTER
     if _ADAPTER is None:
-        _ensure_api_key_loaded()
-        import anthropic
-        client = anthropic.Anthropic()
-        _ADAPTER = AnthropicLLMAdapter(client=client)
+        bedrock_client = boto3.client("bedrock-runtime", region_name="us-east-1")
+        _ADAPTER = BedrockLLMAdapter(client=bedrock_client, model_id=MODEL_ID)
     return _ADAPTER
 
 
+def _get_table():
+    """Return the cached DynamoDB table resource, creating one on first call.
+
+    Tests stub this by setting handler._TABLE to a stub object.
+    """
+    global _TABLE
+    if _TABLE is None:
+        _TABLE = boto3.resource("dynamodb").Table(TABLE_NAME)
+    return _TABLE
+
+
+def _save_pages(story_id: str, pages: list) -> None:
+    """Persist generated pages to DynamoDB and flip status to IMAGES_PENDING."""
+    _get_table().update_item(
+        Key={"story_id": story_id},
+        UpdateExpression="SET pages = :pages, #s = :status",
+        ExpressionAttributeNames={"#s": "status"},
+        ExpressionAttributeValues={
+            ":pages": pages,
+            ":status": "IMAGES_PENDING",
+        },
+    )
+
+
 def lambda_handler(event, context):
-    """Step Functions entrypoint."""
+    """Step Functions handler. Generates the story and returns the event
+    plus a `pages` key.
+    """
     selections = {
         "name": event["name"],
         "age": event["age"],
@@ -68,5 +74,12 @@ def lambda_handler(event, context):
         "theme": event["theme"],
         "adventure": event["adventure"],
     }
-    pages = generate_story(selections, adapter=_get_adapter())
+
+    pages = generate_story(
+        selections=selections,
+        adapter=_get_adapter(),
+    )
+
+    _save_pages(event["story_id"], pages)
+
     return {**event, "pages": pages}
