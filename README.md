@@ -37,7 +37,7 @@ Frontend (React + Vite, S3 Static)
   Entry Lambda  → schema-driven validation → DynamoDB (status: PROCESSING)
         ↓
 Step Functions Pipeline
-   ├── Story Generation Lambda → Anthropic Claude Haiku
+   ├── Story Generation Lambda → AWS Bedrock (Claude Haiku 4.5)
    │     (one structured JSON response with text + image_prompt per page)
    ├── Image Generation Lambda → OpenAI gpt-image-1
    │     (5 illustrations × 1024×1024 watercolor)
@@ -59,14 +59,15 @@ Step Functions Pipeline
 | Lambda (×5) | Independent business logic functions (entry, story, image, pdf, retrieval) |
 | Step Functions | Pipeline orchestration with centralized failure handling |
 | DynamoDB | Story metadata with 30-day TTL |
-| Secrets Manager | Anthropic + OpenAI API keys |
+| Bedrock | Foundation model invocation (Claude Haiku 4.5) for story text |
+| Secrets Manager | OpenAI API key (Bedrock uses IAM, no key needed) |
 | CloudWatch | Logging, metrics, error visibility |
 | CDK | Infrastructure as Code (Python) |
 
 ### AI Providers
 | Service | Purpose |
 |---------|---------|
-| Anthropic Claude Haiku | Story text generation + sanitized image prompts |
+| AWS Bedrock — Claude Haiku 4.5 | Story text generation + sanitized image prompts |
 | OpenAI gpt-image-1 (gpt-4o image generation) | Page illustrations in watercolor style |
 
 V1 uses foundation models via API. The hexagonal/ports-and-adapters architecture is designed to allow Phase 2 swap to custom-trained LoRAs (proprietary visual style + brand voice) without rewriting any business logic — see `DESIGN_AND_TESTING.md` Section 10 for the V2 roadmap.
@@ -87,7 +88,7 @@ MyStoryMSSECapstoneAyalaBartal/
 │
 ├── lambdas/
 │   ├── entry/                      # Schema-driven input validation
-│   ├── story_generation/           # Anthropic Claude Haiku adapter
+│   ├── story_generation/           # AWS Bedrock (Claude Haiku 4.5)
 │   ├── image_generation/           # OpenAI gpt-image-1 adapter
 │   ├── pdf_assembly/               # ReportLab picture-book composition
 │   └── retrieval/                  # Pre-signed S3 URL for PDF download
@@ -147,7 +148,7 @@ MyStoryMSSECapstoneAyalaBartal/
 
 ### V1 (current — foundation models with prompt engineering)
 
-- **Story text:** Anthropic Claude Haiku
+- **Story text:** Anthropic Claude Haiku 4.5 via AWS Bedrock
   - Two-stage structured JSON output: text + sanitized image_prompt per page in a single response
   - Age-aware vocabulary calibration (4-12 year-olds)
   - Verbatim-repeated character + world descriptions across all 5 pages for visual consistency
@@ -258,7 +259,7 @@ Each Lambda keeps its **own** `requirements.txt`. This is a deliberate architect
 
 ```
 lambdas/entry/requirements.txt              → boto3 only
-lambdas/story_generation/requirements.txt   → anthropic + boto3
+lambdas/story_generation/requirements.txt   → boto3 only (Bedrock via boto3)
 lambdas/image_generation/requirements.txt   → openai + boto3
 lambdas/pdf_assembly/requirements.txt       → reportlab + pillow + boto3
 lambdas/retrieval/requirements.txt          → boto3 only
@@ -274,7 +275,7 @@ Each Lambda has its own test suite in its `tests/` folder. All tests use mock ad
 
 ```bash
 pytest lambdas/entry/tests/             # Schema validation, handler, service
-pytest lambdas/story_generation/tests/  # Anthropic adapter, mock, service
+pytest lambdas/story_generation/tests/  # Bedrock adapter, mock, service (TODO — pending refactor)
 pytest lambdas/image_generation/tests/  # OpenAI adapter, mock, service
 pytest lambdas/pdf_assembly/tests/      # ReportLab composition, layout, handler
 pytest lambdas/retrieval/tests/         # Pre-signed URL gen, handler

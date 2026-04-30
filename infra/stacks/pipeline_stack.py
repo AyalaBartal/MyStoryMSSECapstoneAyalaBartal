@@ -4,6 +4,7 @@ from aws_cdk import (
     aws_stepfunctions as sfn,
     aws_stepfunctions_tasks as tasks,
     aws_secretsmanager as secretsmanager,
+    aws_iam as iam,
 )
 from constructs import Construct
 
@@ -59,16 +60,26 @@ class PipelineStack(cdk.Stack):
             self, "StoryGenerationLambda",
             function_name="my-story-generation",
             runtime=lambda_.Runtime.PYTHON_3_11,
-            architecture=lambda_.Architecture.ARM_64,
             handler="handler.lambda_handler",
-            code=lambda_.Code.from_asset("lambda_packages/story_generation.zip"),
-            timeout=cdk.Duration.seconds(30),
-            memory_size=512,
+            code=lambda_.Code.from_asset("../lambdas/story_generation"),
+            timeout=cdk.Duration.seconds(120),
             environment={
-                "ANTHROPIC_SECRET_ARN": self.anthropic_secret.secret_arn,
+                "STORIES_TABLE": storage.stories_table.table_name,
             },
         )
-        self.anthropic_secret.grant_read(self.story_generation_lambda)
+
+        # Add Bedrock permissions
+        self.story_generation_lambda.add_to_role_policy(
+            iam.PolicyStatement(
+                effect=iam.Effect.ALLOW,
+                actions=["bedrock:InvokeModel"],
+                resources=[
+                    "arn:aws:bedrock:us-east-1:*:inference-profile/us.anthropic.claude-haiku-4-5-20251001-v1:0",
+                     "arn:aws:bedrock:*::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0",
+                ],
+            )
+        )
+        storage.stories_table.grant_write_data(self.story_generation_lambda)
 
         # ── Image Generation Lambda ──────────────────────────────
 
