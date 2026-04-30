@@ -10,7 +10,7 @@ from typing import Optional
 
 import boto3
 
-from adapters import LLMAdapter, AnthropicLLMAdapter
+from adapters import LLMAdapter, BedrockLLMAdapter
 from service import generate_story
 
 
@@ -35,7 +35,7 @@ def _get_adapter() -> LLMAdapter:
     global _ADAPTER
     if _ADAPTER is None:
         bedrock_client = boto3.client("bedrock-runtime", region_name="us-east-1")
-        _ADAPTER = AnthropicLLMAdapter(client=bedrock_client, model_id=MODEL_ID)
+        _ADAPTER = BedrockLLMAdapter(client=bedrock_client, model_id=MODEL_ID)
     return _ADAPTER
 
 
