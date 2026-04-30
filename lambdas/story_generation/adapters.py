@@ -98,3 +98,44 @@ class AnthropicLLMAdapter(LLMAdapter):
         # Anthropic returns Message(content=[TextBlock(text=...), ...]).
         # For single-turn prompts it's always a single TextBlock.
         return response.content[0].text
+
+
+class BedrockLLMAdapter(LLMAdapter):
+    """Calls Anthropic Claude via AWS Bedrock.
+
+    Uses the boto3 bedrock-runtime client. The Lambda's IAM role grants
+    bedrock:InvokeModel on the specific Claude inference profile, so no
+    API key is needed — auth is via IAM.
+
+    The client is injected — handler.py builds it and passes it in. Tests
+    inject a stub client and assert on how the adapter calls it.
+    """
+
+    DEFAULT_MODEL_ID = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+    DEFAULT_MAX_TOKENS = 4000
+
+    def __init__(
+        self,
+        client,
+        model_id: str = DEFAULT_MODEL_ID,
+        max_tokens: int = DEFAULT_MAX_TOKENS,
+    ):
+        self._client = client
+        self._model_id = model_id
+        self._max_tokens = max_tokens
+
+    def generate(self, prompt: str) -> str:
+        response = self._client.invoke_model(
+            modelId=self._model_id,
+            contentType="application/json",
+            accept="application/json",
+            body=json.dumps({
+                "anthropic_version": "bedrock-2023-05-31",
+                "max_tokens": self._max_tokens,
+                "messages": [{"role": "user", "content": prompt}],
+            }),
+        )
+        # Bedrock streams the body — read it once, decode, parse.
+        response_body = json.loads(response["body"].read())
+        # Same shape as direct Anthropic API: content[0].text
+        return response_body["content"][0]["text"]

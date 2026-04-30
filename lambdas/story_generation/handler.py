@@ -1,49 +1,58 @@
-import json
+"""AWS Lambda entry point for the story_generation Lambda.
+
+Receives card selections from Step Functions, calls the LLM via an adapter,
+returns the structured 5-page story. Thin — all business logic lives in
+service.py.
+"""
+
 import os
-from pathlib import Path
+from typing import Optional
 
 import boto3
 
-dynamodb = boto3.resource("dynamodb")
-bedrock = boto3.client("bedrock-runtime", region_name="us-east-1")
+from adapters import LLMAdapter, AnthropicLLMAdapter
+from service import generate_story
+
+
+# Module-level cached adapter and table — created once on cold start, reused
+# on warm invocations. Tests override these by setting the module attributes
+# directly (handler._ADAPTER = MockLLMAdapter(); handler._TABLE = stub).
+_ADAPTER: Optional[LLMAdapter] = None
+_TABLE = None
 
 TABLE_NAME = os.environ["STORIES_TABLE"]
-MODEL_ID = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
-
-# Load prompt template once at cold-start; reused on warm invocations.
-_PROMPT_PATH = Path(__file__).parent / "prompt_template.txt"
-PROMPT_TEMPLATE = _PROMPT_PATH.read_text(encoding="utf-8")
-
-CARD_LABELS = {
-    "hero": {"boy": "boy", "girl": "girl"},
-    "theme": {
-        "space": "outer space among the stars",
-        "under_the_sea": "deep under the ocean",
-        "medieval_fantasy": "a magical medieval kingdom",
-        "dinosaurs": "a prehistoric land of dinosaurs",
-    },
-    "adventure": {
-        "secret_map": "finding a mysterious secret map",
-        "talking_animal": "meeting a magical talking animal",
-        "time_machine": "discovering an ancient time machine",
-        "magic_key": "finding a glowing magic key",
-    },
-}
+MODEL_ID = os.environ.get(
+    "BEDROCK_MODEL_ID",
+    "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+)
 
 
-def build_prompt(name, age, hero, theme, adventure):
-    return PROMPT_TEMPLATE.format(
-        name=name,
-        age=age,
-        hero=CARD_LABELS["hero"][hero],
-        theme=CARD_LABELS["theme"][theme],
-        adventure=CARD_LABELS["adventure"][adventure],
-    )
+def _get_adapter() -> LLMAdapter:
+    """Return the cached adapter, creating one on first call.
+
+    Tests stub this by setting handler._ADAPTER to a MockLLMAdapter directly.
+    """
+    global _ADAPTER
+    if _ADAPTER is None:
+        bedrock_client = boto3.client("bedrock-runtime", region_name="us-east-1")
+        _ADAPTER = AnthropicLLMAdapter(client=bedrock_client, model_id=MODEL_ID)
+    return _ADAPTER
 
 
-def save_story_pages(story_id, pages):
-    table = dynamodb.Table(TABLE_NAME)
-    table.update_item(
+def _get_table():
+    """Return the cached DynamoDB table resource, creating one on first call.
+
+    Tests stub this by setting handler._TABLE to a stub object.
+    """
+    global _TABLE
+    if _TABLE is None:
+        _TABLE = boto3.resource("dynamodb").Table(TABLE_NAME)
+    return _TABLE
+
+
+def _save_pages(story_id: str, pages: list) -> None:
+    """Persist generated pages to DynamoDB and flip status to IMAGES_PENDING."""
+    _get_table().update_item(
         Key={"story_id": story_id},
         UpdateExpression="SET pages = :pages, #s = :status",
         ExpressionAttributeNames={"#s": "status"},
@@ -55,47 +64,22 @@ def save_story_pages(story_id, pages):
 
 
 def lambda_handler(event, context):
-    story_id = event["story_id"]
-    name = event["name"]
-    hero = event["hero"]
-    theme = event["theme"]
-    adventure = event["adventure"]
-    age = event["age"]
+    """Step Functions handler. Generates the story and returns the event
+    plus a `pages` key.
+    """
+    selections = {
+        "name": event["name"],
+        "age": event["age"],
+        "hero": event["hero"],
+        "theme": event["theme"],
+        "adventure": event["adventure"],
+    }
 
-    user_prompt = build_prompt(name, age, hero, theme, adventure)
-
-    response = bedrock.invoke_model(
-        modelId=MODEL_ID,
-        contentType="application/json",
-        accept="application/json",
-        body=json.dumps({
-            "anthropic_version": "bedrock-2023-05-31",
-            "max_tokens": 4000,
-            "messages": [{"role": "user", "content": user_prompt}],
-        }),
+    pages = generate_story(
+        selections=selections,
+        adapter=_get_adapter(),
     )
 
-    response_body = json.loads(response["body"].read())
-    story_text = response_body["content"][0]["text"].strip()
+    _save_pages(event["story_id"], pages)
 
-    # Strip accidental markdown fences if the model adds them.
-    if story_text.startswith("```"):
-        story_text = story_text.split("```")[1]
-        if story_text.startswith("json"):
-            story_text = story_text[4:]
-        story_text = story_text.strip()
-
-    parsed = json.loads(story_text)
-    pages = parsed["pages"]
-
-    save_story_pages(story_id, pages)
-
-    return {
-        "story_id": story_id,
-        "name": name,
-        "hero": hero,
-        "theme": theme,
-        "adventure": adventure,
-        "age": age,
-        "pages": pages,
-    }
+    return {**event, "pages": pages}
