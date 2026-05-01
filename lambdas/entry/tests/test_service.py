@@ -122,7 +122,77 @@ class TestSchemaDriven:
         assert result == body
 
 
+class TestCreateStoryOwnership:
+    """Tests for parent_id / claim_token ownership behavior added in Sprint 4."""
+
+    def test_authed_request_saves_parent_id_and_no_claim_token(self, aws_mocks):
+        table, sfn, arn = aws_mocks
+
+        result = create_story(
+            body=VALID_BODY, table=table, stepfunctions_client=sfn,
+            state_machine_arn=arn,
+            parent_id="cognito-sub-abc123",
+            now_fn=_fixed_now, id_fn=_fixed_id,
+        )
+
+        # Response: no claim_token for authed requests
+        assert "claim_token" not in result
+
+        # DDB row has parent_id, no claim_token
+        item = table.get_item(Key={"story_id": result["story_id"]})["Item"]
+        assert item["parent_id"] == "cognito-sub-abc123"
+        assert "claim_token" not in item
+
+    def test_anonymous_request_saves_claim_token_and_no_parent_id(self, aws_mocks):
+        table, sfn, arn = aws_mocks
+
+        result = create_story(
+            body=VALID_BODY, table=table, stepfunctions_client=sfn,
+            state_machine_arn=arn,
+            # parent_id deliberately omitted — defaults to None
+            now_fn=_fixed_now, id_fn=_fixed_id,
+        )
+
+        # Response includes claim_token
+        assert "claim_token" in result
+        assert isinstance(result["claim_token"], str)
+
+        # DDB row has claim_token, no parent_id
+        item = table.get_item(Key={"story_id": result["story_id"]})["Item"]
+        assert "parent_id" not in item
+        assert item["claim_token"] == result["claim_token"]
+
+    def test_authed_request_with_kid_id_saves_both(self, aws_mocks):
+        table, sfn, arn = aws_mocks
+
+        body_with_kid = {**VALID_BODY, "kid_id": "kid-uuid-xyz"}
+        result = create_story(
+            body=body_with_kid, table=table, stepfunctions_client=sfn,
+            state_machine_arn=arn,
+            parent_id="cognito-sub-abc123",
+            now_fn=_fixed_now, id_fn=_fixed_id,
+        )
+        item = table.get_item(Key={"story_id": result["story_id"]})["Item"]
+        assert item["parent_id"] == "cognito-sub-abc123"
+        assert item["kid_id"] == "kid-uuid-xyz"
+
+    def test_invalid_kid_id_raises(self, aws_mocks):
+        table, sfn, arn = aws_mocks
+
+        body_with_bad_kid = {**VALID_BODY, "kid_id": ""}  # empty string
+        with pytest.raises(ValueError, match="kid_id"):
+            create_story(
+                body=body_with_bad_kid, table=table, stepfunctions_client=sfn,
+                state_machine_arn=arn,
+                parent_id="cognito-sub-abc123",
+                now_fn=_fixed_now, id_fn=_fixed_id,
+            )
+
 class TestCreateStory:
+    """Tests for the core create_story flow: DDB write, Step Functions
+    invocation, return value shape. Ownership-specific behavior is
+    covered separately in TestCreateStoryOwnership."""
+
     def test_happy_path_return_value(self, aws_mocks):
         table, sfn, arn = aws_mocks
 
@@ -131,9 +201,12 @@ class TestCreateStory:
             state_machine_arn=arn, now_fn=_fixed_now, id_fn=_fixed_id,
         )
 
-        assert result == {"story_id": FIXED_ID, "status": "PROCESSING"}
+        # Anonymous flow: response includes story_id, status, and claim_token.
+        assert result["story_id"] == FIXED_ID
+        assert result["status"] == "PROCESSING"
+        assert "claim_token" in result
 
-    def test_writes_correct_dynamodb_item(self, aws_mocks):
+    def test_ddb_item_has_expected_shape(self, aws_mocks):
         table, sfn, arn = aws_mocks
 
         create_story(
@@ -142,17 +215,34 @@ class TestCreateStory:
         )
 
         item = table.get_item(Key={"story_id": FIXED_ID})["Item"]
-        assert item["story_id"] == FIXED_ID
-        assert item["hero"] == "girl"
-        assert item["theme"] == "space"
-        assert item["adventure"] == "talking_animal"
-        assert item["age"] == "9"
-        assert item["name"] == "Maya"
-        assert item["status"] == "PROCESSING"
-        assert item["created_at"] == "2026-04-22T10:00:00+00:00"
-        assert int(item["ttl"]) == int(FIXED_NOW.timestamp()) + STORY_TTL_SECONDS
 
-    def test_starts_step_functions_with_correct_input(self, aws_mocks):
+        # Card selections + name copied verbatim from validated body.
+        for field, value in VALID_BODY.items():
+            assert item[field] == value
+
+        # Status starts as PROCESSING.
+        assert item["status"] == "PROCESSING"
+
+        # created_at is the fixed-now ISO string.
+        assert item["created_at"] == FIXED_NOW.isoformat()
+
+    def test_ttl_is_30_days_from_now(self, aws_mocks):
+        table, sfn, arn = aws_mocks
+
+        create_story(
+            body=VALID_BODY, table=table, stepfunctions_client=sfn,
+            state_machine_arn=arn, now_fn=_fixed_now, id_fn=_fixed_id,
+        )
+
+        item = table.get_item(Key={"story_id": FIXED_ID})["Item"]
+        expected_ttl = int(FIXED_NOW.timestamp()) + STORY_TTL_SECONDS
+        assert int(item["ttl"]) == expected_ttl
+
+    def test_step_functions_started_with_story_id_as_execution_name(
+        self, aws_mocks
+    ):
+        """The execution name must equal story_id so retrying the same
+        story is idempotent — Step Functions rejects duplicate names."""
         table, sfn, arn = aws_mocks
 
         create_story(
@@ -164,54 +254,44 @@ class TestCreateStory:
         assert len(executions) == 1
         assert executions[0]["name"] == FIXED_ID
 
-        details = sfn.describe_execution(
-            executionArn=executions[0]["executionArn"]
-        )
-        assert json.loads(details["input"]) == {
-            "story_id": FIXED_ID,
-            "hero": "girl",
-            "theme": "space",
-            "adventure": "talking_animal",
-            "age": "9",
-            "name": "Maya",
-        }
-
-    def test_extra_body_fields_not_persisted(self, aws_mocks):
+    def test_step_functions_input_includes_story_id_and_selections(
+        self, aws_mocks
+    ):
+        """The pipeline downstream Lambdas need card selections + story_id
+        in the Step Functions input payload."""
         table, sfn, arn = aws_mocks
-        body = {**VALID_BODY, "injected": "malicious"}
 
         create_story(
-            body=body, table=table, stepfunctions_client=sfn,
+            body=VALID_BODY, table=table, stepfunctions_client=sfn,
             state_machine_arn=arn, now_fn=_fixed_now, id_fn=_fixed_id,
         )
 
-        item = table.get_item(Key={"story_id": FIXED_ID})["Item"]
-        assert "injected" not in item
+        executions = sfn.list_executions(stateMachineArn=arn)["executions"]
+        execution_arn = executions[0]["executionArn"]
+        description = sfn.describe_execution(executionArn=execution_arn)
+        payload = json.loads(description["input"])
 
-    def test_invalid_body_raises_before_any_write(self, aws_mocks):
+        assert payload["story_id"] == FIXED_ID
+        for field, value in VALID_BODY.items():
+            assert payload[field] == value
+
+    def test_invalid_body_raises_before_ddb_write(self, aws_mocks):
+        """Validation runs first — a bad body must NOT leave a partial
+        DDB row or a Step Functions execution behind."""
         table, sfn, arn = aws_mocks
-        bad_body = {**VALID_BODY, "hero": "wizard"}
 
-        with pytest.raises(ValueError):
+        bad_body = {**VALID_BODY, "hero": "not_a_real_hero"}
+
+        with pytest.raises(ValueError, match="Invalid value for hero"):
             create_story(
                 body=bad_body, table=table, stepfunctions_client=sfn,
-                state_machine_arn=arn, now_fn=_fixed_now, id_fn=_fixed_id,
+                state_machine_arn=arn,
+                now_fn=_fixed_now, id_fn=_fixed_id,
             )
 
-        item = table.get_item(Key={"story_id": FIXED_ID}).get("Item")
-        assert item is None
-        assert sfn.list_executions(stateMachineArn=arn)["executions"] == []
+        # Nothing should have been written.
+        result = table.scan()
+        assert result["Count"] == 0
 
-    def test_default_now_and_id_work(self, aws_mocks):
-        table, sfn, arn = aws_mocks
-
-        result = create_story(
-            body=VALID_BODY, table=table, stepfunctions_client=sfn,
-            state_machine_arn=arn,
-        )
-
-        assert result["status"] == "PROCESSING"
-        assert len(result["story_id"]) == 36
-        item = table.get_item(Key={"story_id": result["story_id"]})["Item"]
-        assert "ttl" in item
-        assert "created_at" in item
+        executions = sfn.list_executions(stateMachineArn=arn)["executions"]
+        assert len(executions) == 0

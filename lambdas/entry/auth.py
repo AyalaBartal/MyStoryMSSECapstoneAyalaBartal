@@ -110,3 +110,28 @@ def verify_jwt(token: str) -> dict:
         )
 
     return claims
+
+def extract_token_from_event(event: dict) -> str | None:
+    """Pull the JWT from an API Gateway event's Authorization header.
+
+    Returns None if the header is missing or doesn't have the
+    expected `Bearer <token>` shape — anonymous request.
+
+    API Gateway can deliver headers under `headers` or `multiValueHeaders`,
+    and header names are case-insensitive. We normalize both.
+    """
+    headers = event.get("headers") or {}
+    # Case-insensitive lookup — API Gateway may pass "Authorization"
+    # or "authorization" depending on client.
+    auth_header = next(
+        (v for k, v in headers.items() if k.lower() == "authorization"),
+        None,
+    )
+    if not auth_header:
+        return None
+
+    parts = auth_header.split(" ", 1)
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        return None
+
+    return parts[1].strip() or None

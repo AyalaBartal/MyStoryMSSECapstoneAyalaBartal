@@ -67,6 +67,15 @@ def validate_card_selections(body: dict) -> dict:
             )
         selections[field] = body[field]
 
+    # Optional kid_id — links the story to a specific kid profile in
+    # the kids table. Only meaningful for authed requests; for anonymous
+    # requests it's ignored (the claim flow attaches kid_id later).
+    if "kid_id" in body:
+        kid_id = body["kid_id"]
+        if not isinstance(kid_id, str) or not kid_id.strip():
+            raise ValueError("kid_id must be a non-empty string")
+        selections["kid_id"] = kid_id.strip()
+
     # Free-text name — whitespace-stripped, length-bounded.
     if "name" not in body:
         raise ValueError("Missing required field: name")
@@ -88,6 +97,7 @@ def create_story(
     table,
     stepfunctions_client,
     state_machine_arn: str,
+    parent_id: str | None = None,
     now_fn: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
     id_fn: Callable[[], str] = lambda: str(uuid.uuid4()),
 ) -> dict:
@@ -103,13 +113,19 @@ def create_story(
         table:                 boto3 DynamoDB Table resource.
         stepfunctions_client:  boto3 Step Functions client.
         state_machine_arn:     ARN of the state machine to start.
+        parent_id:             Cognito sub of the signed-in parent, or
+                               None for anonymous requests. When None,
+                               we generate a claim_token so the parent
+                               can retroactively claim the story by
+                               signing in.
         now_fn:                callable returning current UTC datetime.
                                Injectable so tests can freeze time.
         id_fn:                 callable returning a UUID string.
                                Injectable so tests get deterministic ids.
 
     Returns:
-        {"story_id": str, "status": "PROCESSING"}
+        Authed:     {"story_id": str, "status": "PROCESSING"}
+        Anonymous:  {"story_id": str, "status": "PROCESSING", "claim_token": str}
 
     Raises:
         ValueError: if card selections are invalid.
@@ -125,13 +141,28 @@ def create_story(
     story_id = id_fn()
     now = now_fn()
 
-    table.put_item(Item={
+    # Build the DDB item. Ownership fields are added conditionally
+    # because GSIs only include items where the indexed attribute
+    # exists — adding parent_id=None would still index the row under
+    # an empty string, which would corrupt the parent_id-index.
+    item = {
         "story_id": story_id,
         **selections,
         "status": "PROCESSING",
         "created_at": now.isoformat(),
         "ttl": int(now.timestamp()) + STORY_TTL_SECONDS,
-    })
+    }
+
+    claim_token = None
+    if parent_id:
+        item["parent_id"] = parent_id
+    else:
+        # Anonymous: mint a claim_token so the parent can later sign
+        # in and claim this story via POST /claim-stories.
+        claim_token = id_fn()
+        item["claim_token"] = claim_token
+
+    table.put_item(Item=item)
 
     stepfunctions_client.start_execution(
         stateMachineArn=state_machine_arn,
@@ -139,4 +170,7 @@ def create_story(
         input=json.dumps({"story_id": story_id, **selections}),
     )
 
-    return {"story_id": story_id, "status": "PROCESSING"}
+    response = {"story_id": story_id, "status": "PROCESSING"}
+    if claim_token:
+        response["claim_token"] = claim_token
+    return response
