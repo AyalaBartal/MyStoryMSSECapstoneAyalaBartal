@@ -13,12 +13,9 @@ env = cdk.Environment(
 )
 
 storage = StorageStack(app, "MyStoryStorage", env=env)
+auth = AuthStack(app, "MyStoryAuth", env=env)
 pipeline = PipelineStack(app, "MyStoryPipeline", storage=storage, env=env)
-api = ApiStack(app, "MyStoryApi", storage=storage, pipeline=pipeline, env=env)
+api = ApiStack(app, "MyStoryApi", storage=storage, pipeline=pipeline, auth=auth, env=env)
 cicd = CicdStack(app, "MyStoryCicd", env=env)
-auth_stack = AuthStack(
-    app, "MyStoryAuth",
-    env=cdk.Environment(account="691304835962", region="us-east-1"),
-)
 
 app.synth()

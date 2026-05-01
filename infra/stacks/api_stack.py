@@ -10,7 +10,7 @@ from constructs import Construct
 
 class ApiStack(cdk.Stack):
 
-    def __init__(self, scope: Construct, construct_id: str, storage, pipeline, **kwargs) -> None:
+    def __init__(self, scope: Construct, construct_id: str, storage, pipeline, auth, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         # ── Entry Lambda ─────────────────────────────────────────
@@ -27,6 +27,8 @@ class ApiStack(cdk.Stack):
                 "STORIES_TABLE": storage.stories_table.table_name,
                 "PDFS_BUCKET": storage.pdfs_bucket.bucket_name,
                 "STATE_MACHINE_ARN": pipeline.state_machine.state_machine_arn,
+                "COGNITO_USER_POOL_ID": auth.user_pool.user_pool_id,
+                "COGNITO_APP_CLIENT_ID": auth.user_pool_client.user_pool_client_id,
             },
         )
 
