@@ -32,6 +32,7 @@ header {
   margin-bottom: 2rem;
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 1.25rem;
 }
 
@@ -60,6 +61,7 @@ h2 {
   font-weight: 600;
   margin: 0 0 0.75rem;
   color: var(--ink);
+  text-align: center;
 }
 
 .card-grid {
@@ -221,6 +223,7 @@ h2 {
   font-size: 1rem;
   font-weight: 600;
   color: var(--ink);
+  text-align: center;
 }
 
 .text-input {
@@ -409,4 +412,43 @@ h2 {
   align-items: center;
   justify-content: center;
   min-height: 100vh;
+}
+
+.auth-link {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #2b2320;
+  text-decoration: none;
+  padding: 0.4rem 0.7rem;
+  border-radius: 999px;
+  transition: background 0.15s;
+}
+
+.auth-link:hover {
+  background: rgba(43, 35, 32, 0.06);
+}
+
+/* Override any Amplify UI defaults that leak into the main app.
+   Our brand: accent = peach (#c8611e), bg = cream (#f3e0ce).
+   These !important markers are scoped specifically to win against
+   Amplify's higher-specificity selectors when the Authenticator is
+   not visible. */
+
+body {
+  background: var(--bg) !important;
+}
+
+.app .primary-btn {
+  background: var(--accent) !important;
+  color: white !important;
+}
+
+.app .primary-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-selected);
+}
+
+.app .primary-btn:disabled {
+  opacity: 0.4 !important;
+  cursor: not-allowed;
 }
