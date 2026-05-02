@@ -28,6 +28,9 @@ export function Header({ openAuthModal }) {
         {initial}
       </div>
       <span className="auth-email">{user.email}</span>
+      <Link to="/library" className="auth-link">
+        My Library
+      </Link>
       <Link to="/family" className="auth-link">
         My Family
       </Link>

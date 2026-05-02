@@ -12,6 +12,7 @@ import readyImage from "./ready.png";
 import { useKids } from "./useKids";
 import { useAuth } from "./useAuth";
 import { Link } from "react-router-dom";
+import LibraryPage from "./LibraryPage";
 
 const POLL_INTERVAL_MS = 3000;
 const POLL_TIMEOUT_MS = 180_000;
@@ -77,6 +78,12 @@ function StoryFlow({ openAuthModal }) {
     setErrorMessage(null);
     try {
       const body = { name: trimmedName, age, ...selections };
+      // Include kid_id when a real kid is selected (not "Someone else"
+      // which sets selectedKidId to ""). Backend will tag the story
+      // with this kid_id so it shows up in the kid's library filter.
+      if (selectedKidId) {
+        body.kid_id = selectedKidId;
+      }
       const data = await apiCall("POST", "/generate", body);
       setStoryId(data.story_id);
     } catch (err) {
@@ -324,6 +331,15 @@ function FamilyRoute({ openAuthModal }) {
   );
 }
 
+function LibraryRoute({ openAuthModal }) {
+  return (
+    <>
+      <Header openAuthModal={openAuthModal} />
+      <LibraryPage />
+    </>
+  );
+}
+
 /**
  * Top-level router. "/" story flow, "/family" kid manager.
  * Auth modal is global state because it can be opened from any page's Header.
@@ -355,6 +371,7 @@ export default function App() {
     <Routes>
       <Route path="/" element={<StoryFlow openAuthModal={() => setAuthModalOpen(true)} />} />
       <Route path="/family" element={<FamilyRoute openAuthModal={() => setAuthModalOpen(true)} />} />
+      <Route path="/library" element={<LibraryRoute openAuthModal={() => setAuthModalOpen(true)} />} />
     </Routes>
   );
 }
