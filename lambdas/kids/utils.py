@@ -8,6 +8,7 @@ later without unwinding an import graph. See lambdas/README.md.
 import json
 import logging
 import os
+from decimal import Decimal
 
 
 # ── Logging ───────────────────────────────────────────────────────────
@@ -31,14 +32,25 @@ _CORS_HEADERS = {
 }
 
 
+def _decimal_default(o):
+    """JSON encoder fallback for DynamoDB Decimal values.
+
+    DDB returns all numbers as decimal.Decimal — convert to int if whole,
+    else float. Loses precision on very large floats but that's fine for
+    user-facing data like birth years and counts.
+    """
+    if isinstance(o, Decimal):
+        return int(o) if o == int(o) else float(o)
+    raise TypeError(f"Object of type {type(o).__name__} is not JSON serializable")
+
+
 def make_response(status_code: int, body: dict) -> dict:
     """Wrap a dict body into a proper API Gateway response."""
     return {
         "statusCode": status_code,
         "headers": _CORS_HEADERS,
-        "body": json.dumps(body),
+        "body": json.dumps(body, default=_decimal_default),
     }
-
 
 def error_response(status_code: int, message: str) -> dict:
     """Standardized error envelope."""

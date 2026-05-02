@@ -19,6 +19,19 @@ BIRTH_YEAR_MIN = 2010
 BIRTH_YEAR_MAX = datetime.now(timezone.utc).year
 
 
+# Hero is the visual gender of the kid character — used as the default
+# when generating a story. Stays editable per-story, so the same kid
+# can star in different gendered stories.
+VALID_HEROES = ("boy", "girl")
+
+
+def _validate_hero(hero) -> str:
+    if not isinstance(hero, str):
+        raise ValueError("hero must be a string")
+    if hero not in VALID_HEROES:
+        raise ValueError(f"hero must be one of {VALID_HEROES}")
+    return hero
+
 def _validate_name(name) -> str:
     if not isinstance(name, str):
         raise ValueError("name must be a string")
@@ -75,6 +88,7 @@ def create_kid(
     name = _validate_name(body.get("name"))
     birth_year = _validate_birth_year(body.get("birth_year"))
     avatar_card_id = _validate_avatar_card_id(body.get("avatar_card_id"))
+    hero = _validate_hero(body.get("hero"))
 
     kid_id = id_fn()
     created_at = now_fn().isoformat()
@@ -85,6 +99,7 @@ def create_kid(
         "name": name,
         "birth_year": birth_year,
         "avatar_card_id": avatar_card_id,
+        "hero": hero,
         "created_at": created_at,
     }
 

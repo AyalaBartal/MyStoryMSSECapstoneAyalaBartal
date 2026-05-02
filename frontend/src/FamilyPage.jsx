@@ -27,6 +27,7 @@ export default function FamilyPage() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [newName, setNewName] = useState("");
   const [newBirthYear, setNewBirthYear] = useState("");
+  const [newHero, setNewHero] = useState("");
   const [addError, setAddError] = useState(null);
   const [addSubmitting, setAddSubmitting] = useState(false);
 
@@ -64,45 +65,51 @@ export default function FamilyPage() {
   }, [user]);
 
   async function handleAddKid(e) {
-    e.preventDefault();
+  e.preventDefault();
 
-    const trimmedName = newName.trim();
-    if (trimmedName.length < 1 || trimmedName.length > NAME_MAX_LENGTH) {
-      setAddError(`Name must be 1-${NAME_MAX_LENGTH} characters`);
-      return;
-    }
-    const yearNum = parseInt(newBirthYear, 10);
-    if (
-      isNaN(yearNum) ||
-      yearNum < MIN_BIRTH_YEAR ||
-      yearNum > CURRENT_YEAR
-    ) {
-      setAddError(
-        `Birth year must be between ${MIN_BIRTH_YEAR} and ${CURRENT_YEAR}`,
-      );
-      return;
-    }
-
-    setAddSubmitting(true);
-    setAddError(null);
-    try {
-      const newKid = await apiCall("POST", "/kids", {
-        name: trimmedName,
-        birth_year: yearNum,
-        // Hardcoded for now — Save C / Task 4.13 polish will let
-        // parents pick an avatar from the existing card library.
-        avatar_card_id: "default",
-      });
-      setKids([newKid, ...kids]);
-      setNewName("");
-      setNewBirthYear("");
-      setShowAddForm(false);
-    } catch (err) {
-      setAddError(err.message);
-    } finally {
-      setAddSubmitting(false);
-    }
+  const trimmedName = newName.trim();
+  if (trimmedName.length < 1 || trimmedName.length > NAME_MAX_LENGTH) {
+    setAddError(`Name must be 1-${NAME_MAX_LENGTH} characters`);
+    return;
   }
+  const yearNum = parseInt(newBirthYear, 10);
+  if (
+    isNaN(yearNum) ||
+    yearNum < MIN_BIRTH_YEAR ||
+    yearNum > CURRENT_YEAR
+  ) {
+    setAddError(
+      `Birth year must be between ${MIN_BIRTH_YEAR} and ${CURRENT_YEAR}`,
+    );
+    return;
+  }
+  if (newHero !== "boy" && newHero !== "girl") {
+    setAddError("Pick a hero");
+    return;
+  }
+
+  setAddSubmitting(true);
+  setAddError(null);
+  try {
+    const newKid = await apiCall("POST", "/kids", {
+      name: trimmedName,
+      birth_year: yearNum,
+      hero: newHero,
+      // Hardcoded for now — future polish will let parents pick
+      // an avatar from the existing card library.
+      avatar_card_id: "default",
+    });
+    setKids([newKid, ...kids]);
+    setNewName("");
+    setNewBirthYear("");
+    setNewHero("");
+    setShowAddForm(false);
+  } catch (err) {
+    setAddError(err.message);
+  } finally {
+    setAddSubmitting(false);
+  }
+}
 
   async function handleRemoveKid(kid) {
     const confirmed = window.confirm(
@@ -232,6 +239,29 @@ export default function FamilyPage() {
               />
             </div>
 
+            <div className="field">
+              <label>Hero</label>
+              <div className="hero-picker">
+                <button
+                  type="button"
+                  className={`hero-option ${newHero === "boy" ? "selected" : ""}`}
+                  onClick={() => setNewHero("boy")}
+                >
+                  Boy
+                </button>
+                <button
+                  type="button"
+                  className={`hero-option ${newHero === "girl" ? "selected" : ""}`}
+                  onClick={() => setNewHero("girl")}
+                >
+                  Girl
+                </button>
+              </div>
+              <p className="muted hero-hint">
+                The hero stays editable when creating each story.
+              </p>
+            </div>
+
             {addError && <p className="form-error">{addError}</p>}
 
             <div className="action-row">
@@ -249,6 +279,7 @@ export default function FamilyPage() {
                   setShowAddForm(false);
                   setNewName("");
                   setNewBirthYear("");
+                  setNewHero("");
                   setAddError(null);
                 }}
               >

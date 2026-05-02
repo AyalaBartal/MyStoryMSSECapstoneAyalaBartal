@@ -31,6 +31,7 @@ VALID_KID = {
     "name": "Maya",
     "birth_year": 2018,
     "avatar_card_id": "girl_brown_hair",
+    "hero": "girl",
 }
 
 
@@ -119,6 +120,32 @@ class TestCreateKid:
             create_kid(
                 parent_id=PARENT_ID, body=body, table=kids_table,
             )
+
+    def test_missing_hero_raises(self, kids_table):
+        body = {k: v for k, v in VALID_KID.items() if k != "hero"}
+        with pytest.raises(ValueError, match="hero"):
+            create_kid(
+                parent_id=PARENT_ID, body=body, table=kids_table,
+            )
+
+    def test_invalid_hero_raises(self, kids_table):
+        body = {**VALID_KID, "hero": "robot"}
+        with pytest.raises(ValueError, match="hero must be one of"):
+            create_kid(
+                parent_id=PARENT_ID, body=body, table=kids_table,
+            )
+
+    def test_hero_is_persisted(self, kids_table):
+        result = create_kid(
+            parent_id=PARENT_ID, body=VALID_KID, table=kids_table,
+            now_fn=_fixed_now, id_fn=_fixed_id,
+        )
+        assert result["hero"] == "girl"
+
+        item = kids_table.get_item(
+            Key={"parent_id": PARENT_ID, "kid_id": FIXED_ID}
+        )["Item"]
+        assert item["hero"] == "girl"
 
 
 class TestListKids:

@@ -589,3 +589,41 @@ body {
   text-align: center;
   margin-top: 2rem;
 }
+
+/* ── Hero picker (in kid form) ─────────────────────────────── */
+
+.hero-picker {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.hero-option {
+  flex: 1;
+  padding: 0.9rem 1rem;
+  border: 2px solid transparent;
+  border-radius: 14px;
+  background: var(--bg-card);
+  box-shadow: var(--shadow);
+  font-family: inherit;
+  font-size: 1.05rem;
+  font-weight: 500;
+  color: var(--ink);
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s, box-shadow 0.12s;
+}
+
+.hero-option:hover {
+  transform: translateY(-1px);
+}
+
+.hero-option.selected {
+  border-color: var(--selected);
+  background: var(--accent-soft);
+  box-shadow: var(--shadow-selected);
+}
+
+.hero-hint {
+  font-size: 0.8rem;
+  margin-top: 0.4rem;
+  color: var(--muted);
+}
