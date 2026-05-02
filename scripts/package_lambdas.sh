@@ -12,7 +12,7 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PACKAGES_DIR="$REPO_ROOT/infra/lambda_packages"
-LAMBDAS=(entry retrieval story_generation image_generation pdf_assembly)
+LAMBDAS=(entry retrieval story_generation image_generation pdf_assembly kids claim_stories)
 
 echo "Packaging Lambdas..."
 rm -rf "$PACKAGES_DIR"

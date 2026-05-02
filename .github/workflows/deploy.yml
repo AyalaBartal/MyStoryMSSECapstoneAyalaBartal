@@ -31,7 +31,7 @@ jobs:
         run: |
           pip install pytest pytest-cov moto boto3
 
-          for lambda in entry story_generation image_generation pdf_assembly retrieval; do
+          for lambda in entry story_generation image_generation pdf_assembly retrieval kids claim_stories; do
             echo "--- Installing dependencies for $lambda ---"
             pip install -r lambdas/$lambda/requirements.txt
 
@@ -89,7 +89,7 @@ jobs:
         run: |
           mkdir -p infra/lambda_packages
 
-          for lambda in entry story_generation image_generation pdf_assembly retrieval; do
+          for lambda in entry story_generation image_generation pdf_assembly retrieval kids claim_stories; do
             echo "--- Packaging $lambda ---"
             mkdir -p /tmp/lambda_build/$lambda
             pip install -r lambdas/$lambda/requirements.txt -t /tmp/lambda_build/$lambda
