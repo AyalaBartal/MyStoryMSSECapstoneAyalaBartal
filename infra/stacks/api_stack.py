@@ -45,6 +45,8 @@ class ApiStack(cdk.Stack):
             environment={
                 "STORIES_TABLE": storage.stories_table.table_name,
                 "PDFS_BUCKET": storage.pdfs_bucket.bucket_name,
+                "COGNITO_USER_POOL_ID": auth.user_pool.user_pool_id,
+                "COGNITO_APP_CLIENT_ID": auth.user_pool_client.user_pool_client_id,
             },
         )
 
@@ -83,6 +85,13 @@ class ApiStack(cdk.Stack):
         story = self.api.root.add_resource("story")
         story_id = story.add_resource("{story_id}")
         story_id.add_method(
+            "GET",
+            apigw.LambdaIntegration(self.retrieval_lambda),
+        )
+
+        # GET /my-stories[?kid_id=...] — authed parent library
+        my_stories = self.api.root.add_resource("my-stories")
+        my_stories.add_method(
             "GET",
             apigw.LambdaIntegration(self.retrieval_lambda),
         )

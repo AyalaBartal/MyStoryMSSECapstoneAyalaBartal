@@ -100,3 +100,115 @@ def get_story(
             payload["error"] = item["error"]
 
     return payload
+
+# ── List my stories ──────────────────────────────────────────────────
+
+# How many stories to return at most. Library page size; bigger than
+# this and we should paginate via DDB LastEvaluatedKey.
+MAX_STORIES_PER_LIST = 100
+
+
+def list_stories_for_parent(
+    parent_id: str,
+    table,
+    s3_client,
+    bucket_name: str,
+    kid_id: str | None = None,
+    url_ttl_seconds: int = PRESIGNED_URL_TTL_SECONDS,
+) -> list[dict]:
+    """List a parent's stories, newest first.
+
+    Args:
+        parent_id:        Cognito sub of the requesting parent.
+        table:            boto3 DynamoDB Table resource.
+        s3_client:        boto3 S3 client for pre-signed URLs.
+        bucket_name:      name of the S3 bucket storing finished PDFs.
+        kid_id:           optional — return only stories for this kid.
+                          When set, results are also filtered to ensure
+                          they belong to parent_id (defense against URL
+                          tampering / cross-tenant leakage).
+        url_ttl_seconds:  pre-signed URL TTL for COMPLETE stories.
+
+    Returns:
+        List of story dicts. Each has the same shape get_story returns
+        for that story's status — PROCESSING/COMPLETE/FAILED with a
+        download_url field for COMPLETE.
+
+    Notes:
+        - Returns all states (PROCESSING, COMPLETE, FAILED). The frontend
+          decides whether to hide any.
+        - Sorted newest first by created_at.
+        - Capped at MAX_STORIES_PER_LIST. Pagination would be a follow-up.
+    """
+    if kid_id is None:
+        # Query the parent_id-index. Sort key is created_at, so reverse
+        # ScanIndexForward gives newest-first directly from DDB.
+        response = table.query(
+            IndexName="parent_id-index",
+            KeyConditionExpression="parent_id = :pid",
+            ExpressionAttributeValues={":pid": parent_id},
+            ScanIndexForward=False,  # newest first
+            Limit=MAX_STORIES_PER_LIST,
+        )
+        items = response.get("Items", [])
+    else:
+        # Query the kid_id-index, then filter to ensure ownership.
+        # Without this filter a parent could craft kid_id=<other-parent-kid>
+        # and read another family's stories.
+        response = table.query(
+            IndexName="kid_id-index",
+            KeyConditionExpression="kid_id = :kid",
+            ExpressionAttributeValues={":kid": kid_id},
+            ScanIndexForward=False,
+            Limit=MAX_STORIES_PER_LIST,
+        )
+        items = [
+            item for item in response.get("Items", [])
+            if item.get("parent_id") == parent_id
+        ]
+
+    return [
+        _build_list_payload(item, s3_client, bucket_name, url_ttl_seconds)
+        for item in items
+    ]
+
+
+def _build_list_payload(
+    item: dict, s3_client, bucket_name: str, url_ttl_seconds: int
+) -> dict:
+    """Project a DDB item into the public list payload.
+
+    Same shape as get_story returns. We don't expose internal fields
+    like ttl, claim_token, or pdf_s3_key.
+    """
+    story_id = item["story_id"]
+    status = item.get("status", "UNKNOWN")
+    payload = {
+        "story_id": story_id,
+        "status": status,
+        "created_at": item.get("created_at"),
+        # Card selections — useful for the library UI to show
+        # "Maya's space adventure" without re-querying.
+        "name": item.get("name"),
+        "hero": item.get("hero"),
+        "theme": item.get("theme"),
+        "adventure": item.get("adventure"),
+        "age": item.get("age"),
+        "kid_id": item.get("kid_id"),
+    }
+
+    if status == "COMPLETE":
+        pdf_key = item.get("pdf_s3_key")
+        if pdf_key:
+            # Don't raise on missing key here (unlike get_story) — a
+            # corrupted single row shouldn't blow up the whole list.
+            payload["download_url"] = s3_client.generate_presigned_url(
+                "get_object",
+                Params={"Bucket": bucket_name, "Key": pdf_key},
+                ExpiresIn=url_ttl_seconds,
+            )
+            payload["expires_in"] = url_ttl_seconds
+    elif status == "FAILED" and "error" in item:
+        payload["error"] = item["error"]
+
+    return payload

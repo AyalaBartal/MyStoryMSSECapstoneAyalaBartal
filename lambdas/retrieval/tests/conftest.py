@@ -20,9 +20,32 @@ def aws_mocks():
         dynamodb = boto3.resource("dynamodb")
         table = dynamodb.create_table(
             TableName="test-stories",
-            KeySchema=[{"AttributeName": "story_id", "KeyType": "HASH"}],
+            KeySchema=[
+                {"AttributeName": "story_id", "KeyType": "HASH"},
+            ],
             AttributeDefinitions=[
-                {"AttributeName": "story_id", "AttributeType": "S"}
+                {"AttributeName": "story_id", "AttributeType": "S"},
+                {"AttributeName": "parent_id", "AttributeType": "S"},
+                {"AttributeName": "kid_id", "AttributeType": "S"},
+                {"AttributeName": "created_at", "AttributeType": "S"},
+            ],
+            GlobalSecondaryIndexes=[
+                {
+                    "IndexName": "parent_id-index",
+                    "KeySchema": [
+                        {"AttributeName": "parent_id", "KeyType": "HASH"},
+                        {"AttributeName": "created_at", "KeyType": "RANGE"},
+                    ],
+                    "Projection": {"ProjectionType": "ALL"},
+                },
+                {
+                    "IndexName": "kid_id-index",
+                    "KeySchema": [
+                        {"AttributeName": "kid_id", "KeyType": "HASH"},
+                        {"AttributeName": "created_at", "KeyType": "RANGE"},
+                    ],
+                    "Projection": {"ProjectionType": "ALL"},
+                },
             ],
             BillingMode="PAY_PER_REQUEST",
         )
