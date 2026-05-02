@@ -321,3 +321,92 @@ h2 {
 .action-row .secondary-btn {
   margin-top: 0;
 }
+
+/* ── Auth header ───────────────────────────────────────────── */
+
+.auth-header {
+  position: absolute;
+  top: 1.25rem;
+  right: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  z-index: 10;
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-radius: 999px;
+  padding: 0.35rem 0.5rem 0.35rem 1rem;
+  border: 1px solid rgba(43, 35, 32, 0.08);
+  box-shadow: 0 2px 8px rgba(43, 35, 32, 0.04);
+}
+
+.auth-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #2b2320;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.auth-email {
+  font-size: 0.85rem;
+  color: #2b2320;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: inherit;
+}
+
+.auth-btn {
+  padding: 0.4rem 0.9rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  font-family: inherit;
+  border: none;
+  background: transparent;
+  color: #6b5d56;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.auth-btn:hover {
+  background: rgba(43, 35, 32, 0.06);
+  color: #2b2320;
+}
+
+.auth-btn.primary {
+  background: #2b2320;
+  color: white;
+  padding: 0.5rem 1.1rem;
+}
+
+.auth-btn.primary:hover {
+  background: #443a35;
+  color: white;
+}
+
+/* When signed out, the header is just the primary button —
+   no white pill background needed. */
+.auth-header:has(.auth-btn.primary):not(:has(.auth-email)) {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+}
+
+.auth-modal-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+}

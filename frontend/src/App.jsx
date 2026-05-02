@@ -1,10 +1,13 @@
 import { useEffect, useState } from "react";
+import { Authenticator } from "@aws-amplify/ui-react";
+import "@aws-amplify/ui-react/styles.css";
 import { CARDS } from "./cardsConfig";
+import { useAuth } from "./useAuth";
+import { apiCall } from "./api";
 import "./App.css";
 import loadingAnim from "./loading.webp";
 import readyImage from "./ready.png";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL;
 const POLL_INTERVAL_MS = 3000;
 const POLL_TIMEOUT_MS = 180_000;
 const NAME_MAX_LENGTH = 30;
@@ -26,7 +29,42 @@ function CardVisual({ opt }) {
   return <span className="big-number">{opt.label}</span>;
 }
 
-export default function App() {
+/**
+ * Top-of-app header. Shows either a "Sign in" button (anonymous)
+ * or the user's email + a Sign out button (authed).
+ *
+ * Uses Amplify's Authenticator render-prop pattern: the toSignIn /
+ * signOut functions come from the Authenticator context and they
+ * open / close the modal sign-in UI.
+ */
+function Header({ user, signOut, openAuthModal }) {
+  if (!user) {
+    return (
+      <div className="auth-header">
+        <button className="auth-btn primary" onClick={openAuthModal}>
+          Sign in to save
+        </button>
+      </div>
+    );
+  }
+
+  // First letter of email for the avatar.
+  const initial = (user.email?.[0] || "?").toUpperCase();
+
+  return (
+    <div className="auth-header">
+      <div className="auth-avatar" aria-hidden="true">{initial}</div>
+      <span className="auth-email">{user.email}</span>
+      <button className="auth-btn" onClick={signOut} title="Sign out">
+        Sign out
+      </button>
+    </div>
+  );
+}
+
+function StoryApp({ openAuthModal }) {
+  const { user, signOut } = useAuth();
+
   const [name, setName] = useState("");
   const [age, setAge] = useState("");
   const [selections, setSelections] = useState({});
@@ -47,13 +85,9 @@ export default function App() {
     setErrorMessage(null);
     try {
       const body = { name: trimmedName, age, ...selections };
-      const res = await fetch(`${API_BASE}/generate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) throw new Error(`POST /generate → ${res.status}`);
-      const data = await res.json();
+      // apiCall auto-attaches JWT when signed in; falls back to
+      // anonymous when not. Backend handles both.
+      const data = await apiCall("POST", "/generate", body);
       setStoryId(data.story_id);
     } catch (err) {
       setStatus("failed");
@@ -68,8 +102,7 @@ export default function App() {
 
     async function poll() {
       try {
-        const res = await fetch(`${API_BASE}/story/${storyId}`);
-        const data = await res.json();
+        const data = await apiCall("GET", `/story/${storyId}`);
         if (cancelled) return;
 
         if (data.status === "COMPLETE") {
@@ -112,6 +145,7 @@ export default function App() {
   if (status === "generating") {
     return (
       <main className="app">
+        <Header user={user} signOut={signOut} openAuthModal={openAuthModal} />
         <h1>📖 My Story</h1>
         <div className="status-card">
           <figure className="polaroid">
@@ -130,6 +164,7 @@ export default function App() {
   if (status === "complete") {
     return (
       <main className="app">
+        <Header user={user} signOut={signOut} openAuthModal={openAuthModal} />
         <h1>📖 My Story</h1>
         <div className="status-card">
           <figure className="polaroid">
@@ -156,6 +191,7 @@ export default function App() {
   if (status === "failed") {
     return (
       <main className="app">
+        <Header user={user} signOut={signOut} openAuthModal={openAuthModal} />
         <h1>📖 My Story</h1>
         <div className="status-card">
           <p className="big-emoji">😔</p>
@@ -171,6 +207,7 @@ export default function App() {
 
   return (
     <main className="app">
+      <Header user={user} signOut={signOut} openAuthModal={openAuthModal} />
       <header>
         <h1>📖 My Story</h1>
         <p className="subtitle">Make a personalized book just for you</p>
@@ -237,4 +274,38 @@ export default function App() {
       </button>
     </main>
   );
+}
+
+/**
+ * Top-level wrapper. The Authenticator provider supplies the sign-in
+ * modal. We open it on demand from the header's Sign-in button.
+ *
+ * This is the OPTIONAL sign-in pattern — the app is fully usable
+ * without authenticating; signing in is encouraged but never required.
+ */
+export default function App() {
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+
+  if (authModalOpen) {
+    return (
+      <main className="app auth-modal-container">
+        <Authenticator>
+          {() => {
+            // Once signed in, close the modal.
+            setAuthModalOpen(false);
+            return null;
+          }}
+        </Authenticator>
+        <button
+          className="secondary-btn"
+          onClick={() => setAuthModalOpen(false)}
+          style={{ marginTop: "1rem" }}
+        >
+          ← Back to story
+        </button>
+      </main>
+    );
+  }
+
+  return <StoryApp openAuthModal={() => setAuthModalOpen(true)} />;
 }
