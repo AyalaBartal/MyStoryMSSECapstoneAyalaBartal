@@ -452,3 +452,140 @@ body {
   opacity: 0.4 !important;
   cursor: not-allowed;
 }
+
+/* ── Family page ───────────────────────────────────────────── */
+
+.family-header {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.family-header h1 {
+  font-size: 2.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.family-header .subtitle {
+  font-size: 1.1rem;
+}
+
+.kids-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.kid-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: var(--bg-card);
+  border-radius: 14px;
+  padding: 1rem 1.25rem;
+  box-shadow: var(--shadow);
+}
+
+.kid-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.kid-info {
+  flex: 1;
+  text-align: left;
+}
+
+.kid-name {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.kid-age {
+  font-size: 0.9rem;
+  margin-top: 0.15rem;
+}
+
+.kid-remove-btn {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 0.4rem 0.9rem;
+  font-family: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.kid-remove-btn:hover:not(:disabled) {
+  background: rgba(200, 97, 30, 0.08);
+  color: var(--accent);
+  border-color: rgba(200, 97, 30, 0.2);
+}
+
+.kid-remove-btn:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+.add-kid-btn {
+  display: block;
+  margin: 1.5rem auto 0;
+}
+
+.add-kid-form {
+  max-width: 480px;
+  margin: 1.5rem auto 0;
+}
+
+.add-kid-form .field {
+  margin-bottom: 1rem;
+}
+
+.add-kid-form h2 {
+  text-align: center;
+}
+
+.form-error {
+  color: var(--accent);
+  text-align: center;
+  margin: 0.5rem 0;
+  font-size: 0.95rem;
+}
+
+/* "Back to story" — text link, not a big button */
+.back-link {
+  display: inline-block;
+  text-align: center;
+  margin: 2rem auto 0;
+  text-decoration: none;
+  color: var(--muted);
+  font-size: 0.95rem;
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  transition: background 0.15s, color 0.15s;
+  border: none;
+}
+
+.back-link:hover {
+  background: rgba(43, 35, 32, 0.06);
+  color: var(--ink);
+}
+
+/* Center the back link container */
+.back-link-row {
+  text-align: center;
+  margin-top: 2rem;
+}
