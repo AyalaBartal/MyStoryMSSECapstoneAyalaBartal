@@ -627,3 +627,63 @@ body {
   margin-top: 0.4rem;
   color: var(--muted);
 }
+
+/* ── Kid picker (in story flow) ────────────────────────────── */
+
+.kid-picker {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.kid-pick-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: var(--bg-card);
+  border: 2px solid transparent;
+  border-radius: 14px;
+  padding: 0.75rem 1rem;
+  font-family: inherit;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  transition: transform 0.12s, box-shadow 0.12s, border-color 0.12s;
+  min-width: 200px;
+}
+
+.kid-pick-card:hover {
+  transform: translateY(-2px);
+}
+
+.kid-pick-card.selected {
+  border-color: var(--selected);
+  background: var(--accent-soft);
+  box-shadow: var(--shadow-selected);
+}
+
+.kid-pick-card.custom .kid-avatar {
+  background: transparent;
+  color: var(--muted);
+  border: 2px dashed var(--muted);
+  font-size: 1.4rem;
+}
+
+.kid-pick-card .kid-info {
+  text-align: left;
+}
+
+.kid-picker-hint {
+  text-align: center;
+  margin-top: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.kid-picker-hint a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.kid-picker-hint a:hover {
+  text-decoration: underline;
+}

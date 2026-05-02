@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "./useAuth";
 import { apiCall } from "./api";
+import { useKids } from "./useKids";
 
 const NAME_MAX_LENGTH = 30;
 const CURRENT_YEAR = new Date().getFullYear();
@@ -19,9 +20,14 @@ export default function FamilyPage() {
   }, [authLoading, user, navigate]);
 
   // Kid list state.
+  const { kids: loadedKids, isLoading: listLoading, error: listError, refresh } = useKids();
   const [kids, setKids] = useState([]);
-  const [listLoading, setListLoading] = useState(true);
-  const [listError, setListError] = useState(null);
+
+  // Sync the hook's loaded kids into local state so we can mutate
+  // the displayed list when adding/removing.
+  useEffect(() => {
+    if (loadedKids) setKids(loadedKids);
+  }, [loadedKids]);
 
   // "Add a kid" form state.
   const [showAddForm, setShowAddForm] = useState(false);

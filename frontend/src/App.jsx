@@ -9,6 +9,9 @@ import FamilyPage from "./FamilyPage";
 import "./App.css";
 import loadingAnim from "./loading.webp";
 import readyImage from "./ready.png";
+import { useKids } from "./useKids";
+import { useAuth } from "./useAuth";
+import { Link } from "react-router-dom";
 
 const POLL_INTERVAL_MS = 3000;
 const POLL_TIMEOUT_MS = 180_000;
@@ -36,6 +39,9 @@ function CardVisual({ opt }) {
  * card picker, generation polling, and result screens.
  */
 function StoryFlow({ openAuthModal }) {
+  const { user } = useAuth();
+  const { kids } = useKids();
+  const [selectedKidId, setSelectedKidId] = useState("");
   const [name, setName] = useState("");
   const [age, setAge] = useState("");
   const [selections, setSelections] = useState({});
@@ -43,6 +49,21 @@ function StoryFlow({ openAuthModal }) {
   const [storyId, setStoryId] = useState(null);
   const [downloadUrl, setDownloadUrl] = useState(null);
   const [errorMessage, setErrorMessage] = useState(null);
+
+  function selectKid(kidId) {
+  setSelectedKidId(kidId);
+  if (!kidId) return; // "Custom" — clear nothing, keep what's typed
+  const kid = kids?.find((k) => k.kid_id === kidId);
+  if (!kid) return;
+  setName(kid.name);
+  // birth_year → age. Cap at 12 since that's our max story age.
+  const computedAge = new Date().getFullYear() - kid.birth_year;
+  const ageStr = String(Math.min(Math.max(computedAge, 4), 12));
+  setAge(ageStr);
+  // Pre-fill hero too. The card grid handles "selection" via
+  // the existing selections dict — same shape as if user clicked it.
+  setSelections((prev) => ({ ...prev, hero: kid.hero }));
+}
 
   const trimmedName = name.trim();
   const allCardsPicked = CARDS.every((c) => selections[c.category]);
@@ -183,6 +204,50 @@ function StoryFlow({ openAuthModal }) {
         <h1>📖 My Story</h1>
         <p className="subtitle">Make a personalized book just for you</p>
       </header>
+
+      {user && kids && kids.length > 0 && (
+        <section className="card-section">
+          <h2>Who's this story for?</h2>
+          <div className="kid-picker">
+            {kids.map((kid) => {
+              const age = new Date().getFullYear() - kid.birth_year;
+              const selected = selectedKidId === kid.kid_id;
+              return (
+                <button
+                  key={kid.kid_id}
+                  type="button"
+                  className={`kid-pick-card ${selected ? "selected" : ""}`}
+                  onClick={() => selectKid(kid.kid_id)}
+                >
+                  <div className="kid-avatar" aria-hidden="true">
+                    {kid.name[0]?.toUpperCase() || "?"}
+                  </div>
+                  <div className="kid-info">
+                    <div className="kid-name">{kid.name}</div>
+                    <div className="kid-age muted">
+                      {age} {age === 1 ? "year" : "years"} old
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+            <button
+              type="button"
+              className={`kid-pick-card custom ${selectedKidId === "" ? "selected" : ""}`}
+              onClick={() => selectKid("")}
+            >
+              <div className="kid-avatar" aria-hidden="true">+</div>
+              <div className="kid-info">
+                <div className="kid-name">Someone else</div>
+                <div className="kid-age muted">Type a name</div>
+              </div>
+            </button>
+          </div>
+          <p className="muted kid-picker-hint">
+            <Link to="/family">Manage kids →</Link>
+          </p>
+        </section>
+      )}
 
       <section className="card-section name-age-section">
         <div className="field">
