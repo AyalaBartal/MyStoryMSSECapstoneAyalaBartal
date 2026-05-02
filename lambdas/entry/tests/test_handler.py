@@ -171,3 +171,140 @@ class TestResponseHeaders:
         response = handler.lambda_handler({"body": "{not json"}, None)
 
         assert response["headers"]["Access-Control-Allow-Origin"] == "*"
+
+class TestAuthHandling:
+    """Handler reads the JWT from the Authorization header, verifies it,
+    and passes parent_id (or None for anonymous) to the service.
+
+    These tests stub auth.verify_jwt and service.create_story so we can
+    verify the handler's wiring without involving real Cognito or DDB.
+    """
+
+    def test_authed_request_passes_parent_id_to_service(self, monkeypatch):
+        """Valid JWT in Authorization header → service called with parent_id."""
+        import handler
+
+        # Stub the JWT verifier to accept any token and return a fixed sub.
+        monkeypatch.setattr(
+            handler, "verify_jwt",
+            lambda token: {"sub": "cognito-sub-abc123", "email": "p@example.com"},
+        )
+
+        captured = {}
+
+        def capture_kwargs(**kwargs):
+            captured.update(kwargs)
+            return FAKE_RESULT
+
+        monkeypatch.setattr(handler, "create_story", capture_kwargs)
+
+        event = _event({"hero": "girl"})
+        event["headers"] = {"Authorization": "Bearer valid.jwt.token"}
+
+        response = handler.lambda_handler(event, None)
+
+        assert response["statusCode"] == 202
+        assert captured["parent_id"] == "cognito-sub-abc123"
+
+    def test_anonymous_request_passes_none_parent_id(self, monkeypatch):
+        """No Authorization header → service called with parent_id=None."""
+        import handler
+
+        captured = {}
+
+        def capture_kwargs(**kwargs):
+            captured.update(kwargs)
+            return FAKE_RESULT
+
+        monkeypatch.setattr(handler, "create_story", capture_kwargs)
+
+        # Default _event() has no headers — request is anonymous.
+        response = handler.lambda_handler(_event({"hero": "girl"}), None)
+
+        assert response["statusCode"] == 202
+        assert captured["parent_id"] is None
+
+    def test_invalid_jwt_returns_401(self, monkeypatch):
+        """Tampered/expired JWT → 401, service NOT called.
+
+        Better to reject than silently downgrade a tampered token to
+        anonymous — that would let a bad actor poison other users'
+        libraries via the later claim flow.
+        """
+        import handler
+        from auth import InvalidTokenError
+
+        def reject_token(token):
+            raise InvalidTokenError("Token has expired")
+
+        monkeypatch.setattr(handler, "verify_jwt", reject_token)
+        monkeypatch.setattr(
+            handler, "create_story",
+            lambda **kwargs: pytest.fail("service should not be called on invalid JWT"),
+        )
+
+        event = _event({"hero": "girl"})
+        event["headers"] = {"Authorization": "Bearer expired.jwt.token"}
+
+        response = handler.lambda_handler(event, None)
+
+        assert response["statusCode"] == 401
+        body = json.loads(response["body"])
+        assert "Invalid or expired" in body["error"]
+        # No leak of internal verifier message.
+        assert "Token has expired" not in body["error"]
+
+    def test_malformed_authorization_header_treated_as_anonymous(self, monkeypatch):
+        """Header missing 'Bearer' prefix → treated as anonymous, not 401.
+
+        Rationale: this is most likely a misconfigured client (e.g. mobile
+        app sending a raw token), not an attack. Anonymous flow is safe;
+        no privileges are being granted.
+        """
+        import handler
+
+        captured = {}
+
+        def capture_kwargs(**kwargs):
+            captured.update(kwargs)
+            return FAKE_RESULT
+
+        monkeypatch.setattr(handler, "create_story", capture_kwargs)
+        # verify_jwt should not be called — extract returns None first.
+        monkeypatch.setattr(
+            handler, "verify_jwt",
+            lambda token: pytest.fail("verify_jwt should not be called on malformed header"),
+        )
+
+        event = _event({"hero": "girl"})
+        event["headers"] = {"Authorization": "NotBearer some.token"}
+
+        response = handler.lambda_handler(event, None)
+
+        assert response["statusCode"] == 202
+        assert captured["parent_id"] is None
+
+    def test_authorization_header_case_insensitive(self, monkeypatch):
+        """API Gateway may pass 'Authorization' or 'authorization'.
+        Both must work.
+        """
+        import handler
+
+        monkeypatch.setattr(
+            handler, "verify_jwt",
+            lambda token: {"sub": "cognito-sub-abc123"},
+        )
+
+        captured = {}
+        monkeypatch.setattr(
+            handler, "create_story",
+            lambda **kwargs: captured.update(kwargs) or FAKE_RESULT,
+        )
+
+        event = _event({"hero": "girl"})
+        event["headers"] = {"authorization": "Bearer valid.jwt.token"}  # lowercase
+
+        response = handler.lambda_handler(event, None)
+
+        assert response["statusCode"] == 202
+        assert captured["parent_id"] == "cognito-sub-abc123"

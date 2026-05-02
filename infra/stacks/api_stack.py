@@ -10,7 +10,7 @@ from constructs import Construct
 
 class ApiStack(cdk.Stack):
 
-    def __init__(self, scope: Construct, construct_id: str, storage, pipeline, **kwargs) -> None:
+    def __init__(self, scope: Construct, construct_id: str, storage, pipeline, auth, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         # ── Entry Lambda ─────────────────────────────────────────
@@ -27,6 +27,8 @@ class ApiStack(cdk.Stack):
                 "STORIES_TABLE": storage.stories_table.table_name,
                 "PDFS_BUCKET": storage.pdfs_bucket.bucket_name,
                 "STATE_MACHINE_ARN": pipeline.state_machine.state_machine_arn,
+                "COGNITO_USER_POOL_ID": auth.user_pool.user_pool_id,
+                "COGNITO_APP_CLIENT_ID": auth.user_pool_client.user_pool_client_id,
             },
         )
 
@@ -43,8 +45,50 @@ class ApiStack(cdk.Stack):
             environment={
                 "STORIES_TABLE": storage.stories_table.table_name,
                 "PDFS_BUCKET": storage.pdfs_bucket.bucket_name,
+                "COGNITO_USER_POOL_ID": auth.user_pool.user_pool_id,
+                "COGNITO_APP_CLIENT_ID": auth.user_pool_client.user_pool_client_id,
             },
         )
+
+        # ── Kids Lambda ──────────────────────────────────────────
+
+        self.kids_lambda = lambda_.Function(
+            self, "KidsLambda",
+            function_name="my-story-kids",
+            runtime=lambda_.Runtime.PYTHON_3_11,
+            handler="handler.lambda_handler",
+            architecture=lambda_.Architecture.ARM_64,
+            code=lambda_.Code.from_asset("lambda_packages/kids.zip"),
+            timeout=cdk.Duration.seconds(30),
+            environment={
+                "KIDS_TABLE": storage.kids_table.table_name,
+                "COGNITO_USER_POOL_ID": auth.user_pool.user_pool_id,
+                "COGNITO_APP_CLIENT_ID": auth.user_pool_client.user_pool_client_id,
+            },
+        )
+
+        # Read+write on the kids table only (not stories).
+        storage.kids_table.grant_read_write_data(self.kids_lambda)
+
+        # ── Claim Stories Lambda ─────────────────────────────────
+
+        self.claim_stories_lambda = lambda_.Function(
+            self, "ClaimStoriesLambda",
+            function_name="my-story-claim-stories",
+            runtime=lambda_.Runtime.PYTHON_3_11,
+            handler="handler.lambda_handler",
+            architecture=lambda_.Architecture.ARM_64,
+            code=lambda_.Code.from_asset("lambda_packages/claim_stories.zip"),
+            timeout=cdk.Duration.seconds(30),
+            environment={
+                "STORIES_TABLE": storage.stories_table.table_name,
+                "COGNITO_USER_POOL_ID": auth.user_pool.user_pool_id,
+                "COGNITO_APP_CLIENT_ID": auth.user_pool_client.user_pool_client_id,
+            },
+        )
+
+        # Update on stories table — sets parent_id, removes claim_token.
+        storage.stories_table.grant_read_write_data(self.claim_stories_lambda)
 
         # ── Permissions ───────────────────────────────────────────
 
@@ -83,6 +127,39 @@ class ApiStack(cdk.Stack):
         story_id.add_method(
             "GET",
             apigw.LambdaIntegration(self.retrieval_lambda),
+        )
+
+        # GET /my-stories[?kid_id=...] — authed parent library
+        my_stories = self.api.root.add_resource("my-stories")
+        my_stories.add_method(
+            "GET",
+            apigw.LambdaIntegration(self.retrieval_lambda),
+        )
+
+        # POST   /kids
+        # GET    /kids
+        kids = self.api.root.add_resource("kids")
+        kids.add_method(
+            "POST",
+            apigw.LambdaIntegration(self.kids_lambda),
+        )
+        kids.add_method(
+            "GET",
+            apigw.LambdaIntegration(self.kids_lambda),
+        )
+
+        # DELETE /kids/{kid_id}
+        kid_id_resource = kids.add_resource("{kid_id}")
+        kid_id_resource.add_method(
+            "DELETE",
+            apigw.LambdaIntegration(self.kids_lambda),
+        )
+
+        # POST /claim-stories
+        claim_stories = self.api.root.add_resource("claim-stories")
+        claim_stories.add_method(
+            "POST",
+            apigw.LambdaIntegration(self.claim_stories_lambda),
         )
 
         # ── Outputs ───────────────────────────────────────────────

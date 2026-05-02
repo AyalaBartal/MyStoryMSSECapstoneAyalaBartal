@@ -1,4 +1,4 @@
-"""Inline helpers for the retrieval Lambda.
+"""Inline helpers for the entry Lambda.
 
 These are intentionally NOT imported from a shared module. Each Lambda
 keeps its own copy so it can be extracted into a standalone service
@@ -13,12 +13,7 @@ import os
 # ── Logging ───────────────────────────────────────────────────────────
 
 def get_logger(name: str) -> logging.Logger:
-    """Return a logger configured for Lambda + CloudWatch.
-
-    Lambda's runtime already attaches a handler that writes to CloudWatch,
-    so we just set the level. LOG_LEVEL env var lets us dial verbosity
-    without redeploying — useful for debugging in prod.
-    """
+    """Return a logger configured for Lambda + CloudWatch."""
     logger = logging.getLogger(name)
     logger.setLevel(os.environ.get("LOG_LEVEL", "INFO"))
     return logger
@@ -26,14 +21,13 @@ def get_logger(name: str) -> logging.Logger:
 
 # ── HTTP response envelopes ───────────────────────────────────────────
 
-# CORS headers — the frontend is served from a different origin (S3
-# static site) than the API (API Gateway), so every response MUST
-# include these or the browser will block it.
+# CORS headers. This Lambda handles POST /generate, hence the
+# Allow-Methods value differs from retrieval's GET.
 _CORS_HEADERS = {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET,OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type,Authorization",
+    "Access-Control-Allow-Methods": "POST,OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
 }
 
 
@@ -47,5 +41,5 @@ def make_response(status_code: int, body: dict) -> dict:
 
 
 def error_response(status_code: int, message: str) -> dict:
-    """Standardized error envelope. Keeps all error shapes identical."""
+    """Standardized error envelope."""
     return make_response(status_code, {"error": message})

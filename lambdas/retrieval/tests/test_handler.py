@@ -160,3 +160,119 @@ class TestResponseHeaders:
 
         assert resp["statusCode"] == 400
         assert resp["headers"]["Access-Control-Allow-Origin"] == "*"
+
+class TestMyStoriesRoute:
+    """Tests for the /my-stories handler route."""
+
+    PARENT_ID = "cognito-sub-abc123"
+
+    def _authed_event(self, kid_id=None):
+        """Build an API Gateway event for /my-stories with a Bearer token."""
+        event = {
+            "resource": "/my-stories",
+            "path": "/my-stories",
+            "headers": {"Authorization": "Bearer valid.jwt.token"},
+            "queryStringParameters": ({"kid_id": kid_id} if kid_id else None),
+        }
+        return event
+
+    def test_authed_request_returns_stories(self, monkeypatch):
+        import handler
+
+        monkeypatch.setattr(
+            handler, "verify_jwt",
+            lambda token: {"sub": self.PARENT_ID},
+        )
+
+        captured = {}
+        def stub_list(**kwargs):
+            captured.update(kwargs)
+            return [{"story_id": "story-a", "status": "COMPLETE"}]
+
+        monkeypatch.setattr(handler, "list_stories_for_parent", stub_list)
+
+        response = handler.lambda_handler(self._authed_event(), None)
+
+        assert response["statusCode"] == 200
+        body = json.loads(response["body"])
+        assert body["stories"] == [{"story_id": "story-a", "status": "COMPLETE"}]
+        assert captured["parent_id"] == self.PARENT_ID
+        assert captured["kid_id"] is None
+
+    def test_kid_id_query_param_passed_through(self, monkeypatch):
+        import handler
+
+        monkeypatch.setattr(
+            handler, "verify_jwt",
+            lambda token: {"sub": self.PARENT_ID},
+        )
+
+        captured = {}
+        def stub_list(**kwargs):
+            captured.update(kwargs)
+            return []
+
+        monkeypatch.setattr(handler, "list_stories_for_parent", stub_list)
+
+        response = handler.lambda_handler(
+            self._authed_event(kid_id="kid-uuid-001"), None
+        )
+
+        assert response["statusCode"] == 200
+        assert captured["kid_id"] == "kid-uuid-001"
+
+    def test_no_authorization_header_returns_401(self, monkeypatch):
+        import handler
+
+        monkeypatch.setattr(
+            handler, "list_stories_for_parent",
+            lambda **k: pytest.fail("service should not be called"),
+        )
+
+        event = {
+            "resource": "/my-stories",
+            "path": "/my-stories",
+            "headers": {},  # no Authorization
+        }
+        response = handler.lambda_handler(event, None)
+        assert response["statusCode"] == 401
+
+    def test_invalid_jwt_returns_401(self, monkeypatch):
+        import handler
+        from auth import InvalidTokenError
+
+        monkeypatch.setattr(
+            handler, "verify_jwt",
+            lambda token: (_ for _ in ()).throw(InvalidTokenError("expired")),
+        )
+        monkeypatch.setattr(
+            handler, "list_stories_for_parent",
+            lambda **k: pytest.fail("service should not be called"),
+        )
+
+        response = handler.lambda_handler(self._authed_event(), None)
+        assert response["statusCode"] == 401
+
+    def test_existing_story_route_still_works(self, monkeypatch):
+        """Smoke test: adding /my-stories didn't break /story/{id}."""
+        import handler
+
+        monkeypatch.setattr(
+            handler, "get_story",
+            lambda **k: {
+                "story_id": "test-id",
+                "status": "PROCESSING",
+                "created_at": "2026-04-30T10:00:00+00:00",
+            },
+        )
+
+        event = {
+            "resource": "/story/{story_id}",
+            "path": "/story/test-id",
+            "pathParameters": {"story_id": "test-id"},
+        }
+        response = handler.lambda_handler(event, None)
+
+        assert response["statusCode"] == 202  # PROCESSING
+        body = json.loads(response["body"])
+        assert body["story_id"] == "test-id"

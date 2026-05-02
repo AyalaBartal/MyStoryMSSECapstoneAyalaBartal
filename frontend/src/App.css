@@ -32,6 +32,7 @@ header {
   margin-bottom: 2rem;
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 1.25rem;
 }
 
@@ -60,6 +61,7 @@ h2 {
   font-weight: 600;
   margin: 0 0 0.75rem;
   color: var(--ink);
+  text-align: center;
 }
 
 .card-grid {
@@ -221,6 +223,7 @@ h2 {
   font-size: 1rem;
   font-weight: 600;
   color: var(--ink);
+  text-align: center;
 }
 
 .text-input {
@@ -320,4 +323,480 @@ h2 {
 
 .action-row .secondary-btn {
   margin-top: 0;
+}
+
+/* ── Auth header ───────────────────────────────────────────── */
+
+.auth-header {
+  position: absolute;
+  top: 1.25rem;
+  right: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  z-index: 10;
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-radius: 999px;
+  padding: 0.35rem 0.5rem 0.35rem 1rem;
+  border: 1px solid rgba(43, 35, 32, 0.08);
+  box-shadow: 0 2px 8px rgba(43, 35, 32, 0.04);
+}
+
+.auth-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #2b2320;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.auth-email {
+  font-size: 0.85rem;
+  color: #2b2320;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: inherit;
+}
+
+.auth-btn {
+  padding: 0.4rem 0.9rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  font-family: inherit;
+  border: none;
+  background: transparent;
+  color: #6b5d56;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.auth-btn:hover {
+  background: rgba(43, 35, 32, 0.06);
+  color: #2b2320;
+}
+
+.auth-btn.primary {
+  background: #2b2320;
+  color: white;
+  padding: 0.5rem 1.1rem;
+}
+
+.auth-btn.primary:hover {
+  background: #443a35;
+  color: white;
+}
+
+/* When signed out, the header is just the primary button —
+   no white pill background needed. */
+.auth-header:has(.auth-btn.primary):not(:has(.auth-email)) {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+}
+
+.auth-modal-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+}
+
+.auth-link {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #2b2320;
+  text-decoration: none;
+  padding: 0.4rem 0.7rem;
+  border-radius: 999px;
+  transition: background 0.15s;
+}
+
+.auth-link:hover {
+  background: rgba(43, 35, 32, 0.06);
+}
+
+/* Override any Amplify UI defaults that leak into the main app.
+   Our brand: accent = peach (#c8611e), bg = cream (#f3e0ce).
+   These !important markers are scoped specifically to win against
+   Amplify's higher-specificity selectors when the Authenticator is
+   not visible. */
+
+body {
+  background: var(--bg) !important;
+}
+
+.app .primary-btn {
+  background: var(--accent) !important;
+  color: white !important;
+}
+
+.app .primary-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-selected);
+}
+
+.app .primary-btn:disabled {
+  opacity: 0.4 !important;
+  cursor: not-allowed;
+}
+
+/* ── Family page ───────────────────────────────────────────── */
+
+.family-header {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.family-header h1 {
+  font-size: 2.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.family-header .subtitle {
+  font-size: 1.1rem;
+}
+
+.kids-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.kid-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: var(--bg-card);
+  border-radius: 14px;
+  padding: 1rem 1.25rem;
+  box-shadow: var(--shadow);
+}
+
+.kid-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.kid-info {
+  flex: 1;
+  text-align: left;
+}
+
+.kid-name {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.kid-age {
+  font-size: 0.9rem;
+  margin-top: 0.15rem;
+}
+
+.kid-remove-btn {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 0.4rem 0.9rem;
+  font-family: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.kid-remove-btn:hover:not(:disabled) {
+  background: rgba(200, 97, 30, 0.08);
+  color: var(--accent);
+  border-color: rgba(200, 97, 30, 0.2);
+}
+
+.kid-remove-btn:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+.add-kid-btn {
+  display: block;
+  margin: 1.5rem auto 0;
+}
+
+.add-kid-form {
+  max-width: 480px;
+  margin: 1.5rem auto 0;
+}
+
+.add-kid-form .field {
+  margin-bottom: 1rem;
+}
+
+.add-kid-form h2 {
+  text-align: center;
+}
+
+.form-error {
+  color: var(--accent);
+  text-align: center;
+  margin: 0.5rem 0;
+  font-size: 0.95rem;
+}
+
+/* "Back to story" — text link, not a big button */
+.back-link {
+  display: inline-block;
+  text-align: center;
+  margin: 2rem auto 0;
+  text-decoration: none;
+  color: var(--muted);
+  font-size: 0.95rem;
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  transition: background 0.15s, color 0.15s;
+  border: none;
+}
+
+.back-link:hover {
+  background: rgba(43, 35, 32, 0.06);
+  color: var(--ink);
+}
+
+/* Center the back link container */
+.back-link-row {
+  text-align: center;
+  margin-top: 2rem;
+}
+
+/* ── Hero picker (in kid form) ─────────────────────────────── */
+
+.hero-picker {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.hero-option {
+  flex: 1;
+  padding: 0.9rem 1rem;
+  border: 2px solid transparent;
+  border-radius: 14px;
+  background: var(--bg-card);
+  box-shadow: var(--shadow);
+  font-family: inherit;
+  font-size: 1.05rem;
+  font-weight: 500;
+  color: var(--ink);
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s, box-shadow 0.12s;
+}
+
+.hero-option:hover {
+  transform: translateY(-1px);
+}
+
+.hero-option.selected {
+  border-color: var(--selected);
+  background: var(--accent-soft);
+  box-shadow: var(--shadow-selected);
+}
+
+.hero-hint {
+  font-size: 0.8rem;
+  margin-top: 0.4rem;
+  color: var(--muted);
+}
+
+/* ── Kid picker (in story flow) ────────────────────────────── */
+
+.kid-picker {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.kid-pick-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: var(--bg-card);
+  border: 2px solid transparent;
+  border-radius: 14px;
+  padding: 0.75rem 1rem;
+  font-family: inherit;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  transition: transform 0.12s, box-shadow 0.12s, border-color 0.12s;
+  min-width: 200px;
+}
+
+.kid-pick-card:hover {
+  transform: translateY(-2px);
+}
+
+.kid-pick-card.selected {
+  border-color: var(--selected);
+  background: var(--accent-soft);
+  box-shadow: var(--shadow-selected);
+}
+
+.kid-pick-card.custom .kid-avatar {
+  background: transparent;
+  color: var(--muted);
+  border: 2px dashed var(--muted);
+  font-size: 1.4rem;
+}
+
+.kid-pick-card .kid-info {
+  text-align: left;
+}
+
+.kid-picker-hint {
+  text-align: center;
+  margin-top: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.kid-picker-hint a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.kid-picker-hint a:hover {
+  text-decoration: underline;
+}
+
+/* ── Library page ──────────────────────────────────────────── */
+
+.library-filter {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.filter-pill {
+  background: transparent;
+  border: 1.5px solid var(--accent);
+  color: var(--accent);
+  border-radius: 999px;
+  padding: 0.4rem 1rem;
+  font-family: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.filter-pill:hover {
+  background: rgba(200, 97, 30, 0.08);
+}
+
+.filter-pill.selected {
+  background: var(--accent);
+  color: white;
+}
+
+.library-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.library-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: var(--bg-card);
+  border-radius: 14px;
+  padding: 1rem 1.25rem;
+  box-shadow: var(--shadow);
+}
+
+.library-card-body {
+  flex: 1;
+  text-align: left;
+  min-width: 0;
+}
+
+.library-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.3rem;
+}
+
+.library-card-name {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.library-card-meta {
+  font-size: 0.95rem;
+  margin-bottom: 0.15rem;
+}
+
+.library-card-date {
+  font-size: 0.85rem;
+}
+
+.library-card-btn {
+  flex-shrink: 0;
+  padding: 0.6rem 1rem;
+  font-size: 0.95rem;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.status-badge.status-processing {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.status-badge.status-complete {
+  background: rgba(76, 175, 80, 0.15);
+  color: #2e7d32;
+}
+
+.status-badge.status-failed {
+  background: rgba(220, 50, 50, 0.12);
+  color: #c62828;
+}
+
+.status-badge.status-unknown {
+  background: rgba(122, 106, 94, 0.15);
+  color: var(--muted);
 }

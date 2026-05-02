@@ -1,24 +1,30 @@
-"""Per-Lambda conftest — provides aws_mocks fixture for retrieval tests.
+"""Test fixtures for the claim_stories Lambda.
 
-sys.path and env vars are handled by the root conftest.py so all
-Lambdas' tests can run in one pytest session without module-name
-collisions.
+Root conftest handles sys.path/sys.modules isolation. Here we just
+set Lambda-specific env vars and provide a stories table fixture
+that mirrors the production schema (with the GSIs, since the table
+is the same physical table the retrieval Lambda uses).
 """
+
+import os
 
 import boto3
 import pytest
 from moto import mock_aws
 
 
-@pytest.fixture
-def aws_mocks():
-    """Spin up a mocked DynamoDB table and S3 bucket for one test.
+# Env vars read at handler-import time.
+os.environ.setdefault("STORIES_TABLE", "test-stories")
+os.environ.setdefault("COGNITO_USER_POOL_ID", "us-east-1_test")
+os.environ.setdefault("COGNITO_APP_CLIENT_ID", "test-client-id")
 
-    Yields (table, s3_client, bucket_name).
-    """
+
+@pytest.fixture
+def stories_table():
+    """A moto-mocked stories table — schema mirrors storage_stack.py."""
     with mock_aws():
-        dynamodb = boto3.resource("dynamodb")
-        table = dynamodb.create_table(
+        ddb = boto3.resource("dynamodb", region_name="us-east-1")
+        table = ddb.create_table(
             TableName="test-stories",
             KeySchema=[
                 {"AttributeName": "story_id", "KeyType": "HASH"},
@@ -50,8 +56,4 @@ def aws_mocks():
             BillingMode="PAY_PER_REQUEST",
         )
         table.wait_until_exists()
-
-        s3 = boto3.client("s3")
-        s3.create_bucket(Bucket="test-pdfs")
-
-        yield table, s3, "test-pdfs"
+        yield table

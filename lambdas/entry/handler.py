@@ -10,6 +10,7 @@ import os
 
 import boto3
 
+from auth import InvalidTokenError, extract_token_from_event, verify_jwt
 from service import create_story
 from utils import error_response, get_logger, make_response
 
@@ -27,6 +28,22 @@ STATE_MACHINE_ARN = os.environ["STATE_MACHINE_ARN"]
 _table = _dynamodb.Table(TABLE_NAME)
 
 
+def _resolve_parent_id(event: dict) -> str | None:
+    """Return the Cognito sub if a valid JWT is attached, else None.
+
+    Hybrid auth: anonymous requests are permitted (return None and let
+    service.py mint a claim_token). A *present but invalid* token is
+    treated as a hard failure — better to reject than silently downgrade
+    a tampered token to anonymous, which would let a bad actor poison
+    other users' libraries via a later claim.
+    """
+    token = extract_token_from_event(event)
+    if token is None:
+        return None
+    claims = verify_jwt(token)  # raises InvalidTokenError if bad
+    return claims["sub"]
+
+
 def lambda_handler(event, context):
     """API Gateway handler for POST /generate."""
 
@@ -39,12 +56,21 @@ def lambda_handler(event, context):
         logger.info("Request body is not valid JSON")
         return error_response(400, "Request body must be valid JSON")
 
+    # Resolve auth before validation so we can reject a bad token with
+    # a clear 401 rather than letting it slide as anonymous.
+    try:
+        parent_id = _resolve_parent_id(event)
+    except InvalidTokenError as e:
+        logger.info("JWT verification failed: %s", e)
+        return error_response(401, "Invalid or expired authentication token")
+
     try:
         result = create_story(
             body=body,
             table=_table,
             stepfunctions_client=_stepfunctions,
             state_machine_arn=STATE_MACHINE_ARN,
+            parent_id=parent_id,
         )
     except ValueError as e:
         logger.info("Validation failed: %s", e)
