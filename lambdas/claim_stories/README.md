@@ -6,6 +6,12 @@ without an account → entry Lambda mints a `claim_token` → frontend
 stores it in localStorage → on first sign-in the frontend POSTs all
 stored claims here, and they get attached to the new account.
 
+> **Status:** Backend deployed and tested (27 unit tests passing). Frontend
+> integration is deferred — the React app does not yet write claim_tokens
+> to localStorage or call this endpoint on sign-in. Documented as Sprint 5
+> work in `PROJECT_PLAN.md`. The endpoint is fully functional and can be
+> exercised via direct API calls.
+
 ## HTTP contract
 
 **Route:** `POST /claim-stories` (auth required)
@@ -65,13 +71,29 @@ Wired in `infra/stacks/api_stack.py`:
 - `dynamodb:UpdateItem`, `GetItem` on the stories table
 
 ## File layout
+
+```
 claim_stories/
 ├── handler.py        # AWS entry point — JWT + POST routing
 ├── service.py        # claim logic with conditional updates
 ├── auth.py           # JWT verification (copy from entry/)
-├── utils.py          # CORS, logger (copy from entry/)
-├── requirements.txt
+├── utils.py          # CORS, logger, Decimal-safe JSON encoder (copy from entry/)
+├── requirements.txt  # boto3 + python-jose[cryptography]
+├── README.md
 └── tests/
     ├── conftest.py
     ├── test_handler.py
     └── test_service.py
+```
+
+## Running the tests
+
+From the repo root:
+
+```bash
+pytest lambdas/claim_stories/tests/ -v
+```
+
+27 tests covering input validation, the happy claim path, idempotency
+(same parent re-claiming), and security boundaries (a parent cannot
+claim another parent's story even if they guess the story_id).

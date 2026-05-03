@@ -1,7 +1,9 @@
 # My Story 📖
 > AI-Powered Personalized Children's Story Generator
 
-An AWS serverless application that lets children (ages 4–12) enter their name, pick their age, and select story cards to receive a unique, personalized 5-page picture book — complete with AI-generated watercolor illustrations and a custom cover — delivered as a downloadable square 8×8 inch PDF.
+An AWS serverless application that lets parents and children create unique, personalized 5-page picture books — complete with AI-generated watercolor illustrations and a custom cover — delivered as downloadable square 8×8 inch PDFs.
+
+Anonymous users can generate a story without an account. Signed-in parents can save kid profiles for one-tap reuse and revisit their family's library of past stories.
 
 Built as part of the **MSSE Capstone Project** at Quantic School of Business and Technology.
 
@@ -9,7 +11,7 @@ Built as part of the **MSSE Capstone Project** at Quantic School of Business and
 
 ## 🌟 What It Does
 
-Children enter their name, pick their age, and select 3 story cards:
+Children (ages 4–12) enter their name, pick their age, and select 3 story cards:
 
 - **Hero** — Boy or Girl
 - **Adventure Theme** — Space, Under the Sea, Medieval Fantasy, or Dinosaurs
@@ -23,6 +25,15 @@ The app generates a unique **5-page personalized picture book** with:
 
 **288 possible unique story-shape combinations** (2 heroes × 4 themes × 4 adventures × 9 ages), plus open-ended creative variation through the child's name and the LLM's generation.
 
+### User accounts (Sprint 4)
+
+Signed-in parents can:
+- **Manage kid profiles** — name, birth year, hero (boy/girl) per child. One-tap reuse so they don't re-enter the same info every time.
+- **View their family library** — all stories they've made, filterable by kid.
+- **Re-download past stories** without regenerating them.
+
+Authentication is **optional** — anonymous users can still generate stories. Sign-up is encouraged but never required (hybrid auth).
+
 ---
 
 ## 🏗️ Architecture
@@ -32,9 +43,12 @@ Fully serverless on AWS, built and deployed with AWS CDK (Python).
 ```
 Frontend (React + Vite, S3 Static)
         ↓
-   API Gateway
+   Cognito ──── Sign in ────┐
+                            ↓
+   API Gateway   ←── JWT (when signed in)
         ↓
-  Entry Lambda  → schema-driven validation → DynamoDB (status: PROCESSING)
+  Entry Lambda  → schema-driven validation
+                → DynamoDB (status: PROCESSING, parent_id OR claim_token)
         ↓
 Step Functions Pipeline
    ├── Story Generation Lambda → AWS Bedrock (Claude Haiku 4.5)
@@ -46,21 +60,22 @@ Step Functions Pipeline
         ↓
   Save to S3 + DynamoDB (status: COMPLETE)
         ↓
-  Retrieval Lambda → Pre-signed S3 URL
-        ↓
-  PDF Download
+  Retrieval Lambda → Pre-signed S3 URL (single story OR my-library list)
+  Kids Lambda      → Manage kid profiles (POST/GET/DELETE /kids)
+  ClaimStories Lambda → Anonymous → owned conversion (deferred frontend wiring)
 ```
 
 ### AWS Services
 | Service | Purpose |
 |---------|---------|
 | S3 (×4 buckets) | Frontend hosting, PDF storage, illustration storage, card images |
-| API Gateway | REST API endpoints (`POST /generate`, `GET /story/{id}`) |
-| Lambda (×5) | Independent business logic functions (entry, story, image, pdf, retrieval) |
+| API Gateway | REST API endpoints (`POST /generate`, `GET /story/{id}`, `GET /my-stories`, `POST/GET/DELETE /kids`, `POST /claim-stories`) |
+| Lambda (×7) | Independent business logic functions (entry, story, image, pdf, retrieval, kids, claim_stories) |
 | Step Functions | Pipeline orchestration with centralized failure handling |
-| DynamoDB | Story metadata with 30-day TTL |
+| DynamoDB | Stories table with `parent_id` + `kid_id` GSIs; kids table for parent profiles |
+| Cognito | User Pool + App Client for parent authentication (Sprint 4) |
 | Bedrock | Foundation model invocation (Claude Haiku 4.5) for story text |
-| Secrets Manager | OpenAI API key (Bedrock uses IAM, no key needed) |
+| Secrets Manager | OpenAI API key (Bedrock and Cognito use IAM, no key needed) |
 | CloudWatch | Logging, metrics, error visibility |
 | CDK | Infrastructure as Code (Python) |
 
@@ -70,40 +85,50 @@ Step Functions Pipeline
 | AWS Bedrock — Claude Haiku 4.5 | Story text generation + sanitized image prompts |
 | OpenAI gpt-image-1 (gpt-4o image generation) | Page illustrations in watercolor style |
 
-V1 uses foundation models via API. The hexagonal/ports-and-adapters architecture is designed to allow Phase 2 swap to custom-trained LoRAs (proprietary visual style + brand voice) without rewriting any business logic — see `DESIGN_AND_TESTING.md` Section 10 for the V2 roadmap.
+V1 uses foundation models via API. The hexagonal/ports-and-adapters architecture is designed to allow Phase 2 swap to custom-trained LoRAs (proprietary visual style + brand voice) without rewriting any business logic — see `DESIGN_AND_TESTING.md` for the V2 roadmap.
 
 ---
 
 ## 📁 Repository Structure
-
 ```
 MyStoryMSSECapstoneAyalaBartal/
 ├── infra/                          # AWS CDK app (Python)
 │   ├── app.py                      # CDK entry point
 │   └── stacks/
-│       ├── storage_stack.py        # 4 S3 buckets + DynamoDB
-│       ├── api_stack.py            # API Gateway + Entry/Retrieval Lambdas
-│       ├── pipeline_stack.py       # Story/Image/PDF Lambdas + Step Fns + Secrets
-│       └── cicd_stack.py           # (placeholder for self-hosted CI/CD)
+│       ├── storage_stack.py        # S3 buckets + DynamoDB stories + GSIs + kids table
+│       ├── auth_stack.py           # Cognito User Pool + App Client + hosted UI
+│       ├── api_stack.py            # API Gateway + 4 API-facing Lambdas + Cognito wiring
+│       ├── pipeline_stack.py       # 3 Step Functions worker Lambdas + Secrets + Bedrock IAM
+│       └── cicd_stack.py           # (placeholder; CI/CD lives in .github/workflows)
 │
 ├── lambdas/
-│   ├── entry/                      # Schema-driven input validation
+│   ├── entry/                      # POST /generate (anonymous + authed)
 │   ├── story_generation/           # AWS Bedrock (Claude Haiku 4.5)
 │   ├── image_generation/           # OpenAI gpt-image-1 adapter
 │   ├── pdf_assembly/               # ReportLab picture-book composition
-│   └── retrieval/                  # Pre-signed S3 URL for PDF download
-│   (each contains: handler.py, service.py, adapters.py, requirements.txt, tests/)
+│   ├── retrieval/                  # GET /story/{id} (public) + GET /my-stories (authed)
+│   ├── kids/                       # POST/GET/DELETE /kids (Sprint 4, authed)
+│   └── claim_stories/              # POST /claim-stories (Sprint 4, authed)
+│   (each contains: handler.py, service.py, auth.py, utils.py, requirements.txt, tests/)
 │
 ├── frontend/                       # React + Vite SPA
+│   ├── README.md                   # Frontend-specific dev instructions
 │   ├── package.json
 │   ├── vite.config.js
 │   ├── index.html
 │   └── src/
-│       ├── App.jsx                 # Card picker + polaroid loader/complete UI
-│       ├── App.css
-│       ├── cardsConfig.jsx         # Card definitions
-│       ├── loading.webp            # Polaroid loading animation
-│       ├── ready.png               # Polaroid completion image
+│       ├── main.jsx                # Router + Amplify config
+│       ├── App.jsx                 # Routes + story flow + auth modal
+│       ├── App.css                 # Component styles
+│       ├── Layout.jsx              # Auth header (avatar, nav, sign out)
+│       ├── FamilyPage.jsx          # /family — kid profile manager
+│       ├── LibraryPage.jsx         # /library — story library with kid filter
+│       ├── api.js                  # fetch wrapper with auto-JWT attachment
+│       ├── useAuth.js              # Cognito auth state hook
+│       ├── useKids.js              # Loads parent's kid profiles
+│       ├── useStories.js           # Loads parent's stories
+│       ├── amplifyConfig.js        # Amplify.configure() at boot
+│       ├── cardsConfig.js          # Card definitions
 │       └── assets/cards/           # Card illustration assets
 │
 ├── scripts/
@@ -111,17 +136,14 @@ MyStoryMSSECapstoneAyalaBartal/
 │   ├── generate_card_images.py     # One-off card image generator
 │   └── smoke_test_*.py             # End-to-end Lambda smoke tests
 │
-├── ml/                             # Phase 2 — placeholder for LoRA training code
-│
 ├── .github/workflows/
 │   └── deploy.yml                  # CI/CD pipeline
 │
-├── DESIGN_AND_TESTING.md           # Full architecture + testing strategy doc
-├── WORK_LOG.md                     # Sprint diary
+├── DESIGN_AND_TESTING.md           # Full architecture + testing strategy
+├── PROJECT_PLAN.md                 # Sprint plan + task board
 ├── COSTS.md                        # Cost tracking
 └── README.md                       # This file
 ```
-
 ---
 
 ## 🚀 Live Demo
@@ -163,7 +185,7 @@ MyStoryMSSECapstoneAyalaBartal/
   - Age-tiered font sizing
   - `KeepInFrame` overflow protection so text never silently disappears
 
-### V2 (Phase 2 roadmap — see `DESIGN_AND_TESTING.md` Section 10)
+### V2 (Phase 2 roadmap — see `DESIGN_AND_TESTING.md`)
 
 - **Style LoRA** trained on commissioned designer portfolio (proprietary visual brand)
 - **Voice fine-tune** of GPT-4o-mini on a custom story corpus (proprietary editorial voice)
@@ -177,7 +199,7 @@ MyStoryMSSECapstoneAyalaBartal/
 
 ### Prerequisites
 - Python 3.11+ (Lambdas run on Python 3.11 in AWS — match the runtime locally)
-- Node.js 18+ (for Vite frontend dev + CDK)
+- Node.js 20+ (for Vite frontend dev + CDK)
 - AWS CLI configured (only needed for deploying from your laptop)
 - Homebrew (macOS): `brew install python@3.11 node` gets you the first two
 
@@ -218,10 +240,10 @@ python -c "import pytest, moto, boto3; print('OK')"
 
 ```bash
 # From the repo root, with .venv active
-pytest lambdas/ -v
+pytest
 ```
 
-You should see 120+ tests pass in under 5 seconds.
+You should see **239+ tests** pass in under 6 seconds.
 
 ### 4. Run the frontend locally
 
@@ -231,7 +253,14 @@ npm install
 npm run dev
 ```
 
-The dev server runs on http://localhost:5173. You'll need a `.env.local` with `VITE_API_BASE_URL` pointing at your deployed (or local) API endpoint.
+The dev server runs on http://localhost:5173. You'll need a `frontend/.env.local` with:
+```
+VITE_API_BASE_URL=https://d2633mrual.execute-api.us-east-1.amazonaws.com/prod
+VITE_USER_POOL_ID=us-east-1_HroqilVxq
+VITE_USER_POOL_CLIENT_ID=157h8g823igbckk765rlf4k60p
+VITE_USER_POOL_REGION=us-east-1
+```
+These are public, build-time-injected values. The Cognito IDs are designed to live in browser code.
 
 ### 5. Deploy from your laptop (optional)
 
@@ -256,15 +285,15 @@ cdk deploy --all
 ### 6. Per-Lambda `requirements.txt` files
 
 Each Lambda keeps its **own** `requirements.txt`. This is a deliberate architectural choice that preserves the ability to split any Lambda into its own standalone service in the future without rewriting dependency management.
-
 ```
-lambdas/entry/requirements.txt              → boto3 only
+lambdas/entry/requirements.txt              → boto3 + python-jose (for JWT)
 lambdas/story_generation/requirements.txt   → boto3 only (Bedrock via boto3)
 lambdas/image_generation/requirements.txt   → openai + boto3
 lambdas/pdf_assembly/requirements.txt       → reportlab + pillow + boto3
-lambdas/retrieval/requirements.txt          → boto3 only
+lambdas/retrieval/requirements.txt          → boto3 + python-jose (for JWT)
+lambdas/kids/requirements.txt               → boto3 + python-jose (for JWT)
+lambdas/claim_stories/requirements.txt      → boto3 + python-jose (for JWT)
 ```
-
 The packaging script (`scripts/package_lambdas.sh`) reads each file independently and bundles only that Lambda's declared dependencies into its zip. Keeps each Lambda's deployment artifact small and its dependency surface narrow.
 
 ---
@@ -274,11 +303,13 @@ The packaging script (`scripts/package_lambdas.sh`) reads each file independentl
 Each Lambda has its own test suite in its `tests/` folder. All tests use mock adapters and stubbed S3/DDB callables — **no test ever hits real AWS or external APIs**.
 
 ```bash
-pytest lambdas/entry/tests/             # Schema validation, handler, service
-pytest lambdas/story_generation/tests/  # Bedrock adapter, mock, service (TODO — pending refactor)
+pytest lambdas/entry/tests/             # Schema validation, JWT, claim_token minting
+pytest lambdas/story_generation/tests/  # Bedrock adapter, mock, service
 pytest lambdas/image_generation/tests/  # OpenAI adapter, mock, service
 pytest lambdas/pdf_assembly/tests/      # ReportLab composition, layout, handler
-pytest lambdas/retrieval/tests/         # Pre-signed URL gen, handler
+pytest lambdas/retrieval/tests/         # /story/{id} + /my-stories with GSI queries
+pytest lambdas/kids/tests/              # Kid profile CRUD + auth
+pytest lambdas/claim_stories/tests/     # Conditional claim updates + ownership boundaries
 ```
 
 Or run everything:
@@ -288,7 +319,7 @@ pytest
 
 CI runs automatically on every push to `main` and all pull requests via GitHub Actions.
 
-See `DESIGN_AND_TESTING.md` Section 8 for the full testing strategy.
+See `DESIGN_AND_TESTING.md` for the full testing strategy.
 
 ---
 
@@ -299,6 +330,7 @@ See `DESIGN_AND_TESTING.md` Section 8 for the full testing strategy.
 | Sprint 1 | Weeks 1–3 | Planning, architecture, CDK bootstrap, schema design, Entry Lambda |
 | Sprint 2 | Weeks 4–6 | Story + Image + PDF Lambdas with foundation models, hexagonal pattern |
 | Sprint 3 | Weeks 7–10 | Frontend, picture-book PDF format, gpt-image-1 swap, polish, demo prep |
+| Sprint 4 | Weeks 10–11 | User accounts (Cognito), kid profiles, my-library page, hybrid auth flow |
 
 ---
 

@@ -26,6 +26,8 @@ Final stage of the pipeline. Combines the 5 illustrations + story text into a sq
 }
 ```
 
+The Lambda passes through any extra event fields (e.g. `parent_id`, `kid_id` if Step Functions added them upstream) without touching them — only `pages` and `image_s3_keys` are consumed; ownership fields are written to DynamoDB by the entry Lambda before the pipeline starts.
+
 **Output:** input dict plus the final PDF key + status flip:
 ```json
 {
@@ -110,6 +112,22 @@ Wired in `infra/stacks/pipeline_stack.py`:
 - `s3:PutObject` on the pdfs bucket (`grant_write`).
 - `dynamodb:UpdateItem` on the stories table (`grant_write_data`).
 
+## File layout
+
+```
+pdf_assembly/
+├── handler.py
+├── service.py
+├── utils.py
+├── layout.json
+├── requirements.txt    # reportlab + pillow + boto3
+├── README.md
+└── tests/
+    ├── conftest.py
+    ├── test_handler.py
+    └── test_service.py
+```
+
 ## Tests
 
-`pytest lambdas/pdf_assembly/tests/ -v` — all tests use stub callables and a tiny canned PNG. Zero network, zero AWS.
+`pytest lambdas/pdf_assembly/tests/ -v` — 24 tests using stub callables and a tiny canned PNG. Zero network, zero AWS.
