@@ -86,7 +86,7 @@ jobs:
           pip install -r requirements.txt
 
       - name: Package Lambda functions
-          run: ./scripts/package_lambdas.sh
+        run: ./scripts/package_lambdas.sh
 
       - name: CDK deploy all stacks
         run: |
