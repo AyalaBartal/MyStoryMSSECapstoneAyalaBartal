@@ -137,6 +137,9 @@ jobs:
       - name: Build frontend
         env:
           VITE_API_BASE_URL: https://d2633mrual.execute-api.us-east-1.amazonaws.com/prod
+          VITE_USER_POOL_ID: us-east-1_HroqilVxq
+          VITE_USER_POOL_CLIENT_ID: 157h8g823igbckk765rlf4k60p
+          VITE_USER_POOL_REGION: us-east-1
         run: |
           cd frontend
           npm run build
