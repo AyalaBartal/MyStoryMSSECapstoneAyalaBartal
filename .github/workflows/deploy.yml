@@ -86,18 +86,7 @@ jobs:
           pip install -r requirements.txt
 
       - name: Package Lambda functions
-        run: |
-          mkdir -p infra/lambda_packages
-
-          for lambda in entry story_generation image_generation pdf_assembly retrieval kids claim_stories; do
-            echo "--- Packaging $lambda ---"
-            mkdir -p /tmp/lambda_build/$lambda
-            pip install -r lambdas/$lambda/requirements.txt -t /tmp/lambda_build/$lambda
-            cp lambdas/$lambda/handler.py /tmp/lambda_build/$lambda/
-            cd /tmp/lambda_build/$lambda
-            zip -r $GITHUB_WORKSPACE/infra/lambda_packages/${lambda}.zip .
-            cd $GITHUB_WORKSPACE
-          done
+          run: ./scripts/package_lambdas.sh
 
       - name: CDK deploy all stacks
         run: |
